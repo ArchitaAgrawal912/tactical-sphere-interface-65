@@ -183,9 +183,9 @@ const CommsPanel = () => {
       {/* Terminal output with enhanced scrolling - fills available space */}
       <div 
         ref={scrollRef}
-        className="flex-1 min-h-0 max-h-[280px] overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 scrollbar-thin"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 scrollbar-thin"
       >
-        <div className="p-2 pb-[50px] space-y-2">
+        <div className="p-2 pb-14 space-y-2">
           <AnimatePresence mode="popLayout">
             {logs.length === 0 ? (
               <motion.div
