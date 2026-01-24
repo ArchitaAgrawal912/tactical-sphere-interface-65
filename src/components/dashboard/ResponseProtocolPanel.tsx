@@ -1,5 +1,4 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { forwardRef } from "react";
 import { 
   ShieldAlert, 
   CheckCircle2, 
@@ -34,7 +33,7 @@ const ActionIcon = ({ icon }: { icon: ProtocolAction["icon"] }) => {
   }
 };
 
-const ResponseProtocolPanel = forwardRef<HTMLDivElement>((_, ref) => {
+const ResponseProtocolPanel = () => {
   const { 
     activeIncident,
     activeProtocol,
@@ -47,14 +46,16 @@ const ResponseProtocolPanel = forwardRef<HTMLDivElement>((_, ref) => {
     affectedWorkerIds,
   } = useSimulationStore();
 
-  if (!activeIncident || !activeProtocol) {
-    return null;
-  }
-
   // Use site-wide protocol if it's a mass emergency
   const protocol = isSiteWideEmergency 
     ? getSiteWideProtocol() 
-    : getProtocolForIncident(activeIncident);
+    : activeIncident ? getProtocolForIncident(activeIncident) : null;
+
+  // Early return if no incident or protocol
+  if (!activeIncident || !activeProtocol || !protocol) {
+    return null;
+  }
+
   const progress = getProtocolProgress(protocol, activeProtocol);
   const canResolve = isProtocolComplete(protocol, activeProtocol) && 
                      activeProtocol.verificationStatus === "verified";
@@ -93,7 +94,6 @@ const ResponseProtocolPanel = forwardRef<HTMLDivElement>((_, ref) => {
 
   return (
     <motion.div
-      ref={ref}
       className={`glass-panel p-3 w-full ${getSeverityGlow()} ${getSeverityBorder()} border-2`}
       initial={{ opacity: 0, x: 50, scale: 0.95 }}
       animate={{ 
@@ -340,8 +340,6 @@ const ResponseProtocolPanel = forwardRef<HTMLDivElement>((_, ref) => {
       )}
     </motion.div>
   );
-});
-
-ResponseProtocolPanel.displayName = "ResponseProtocolPanel";
+};
 
 export default ResponseProtocolPanel;
