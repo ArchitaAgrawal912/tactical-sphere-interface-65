@@ -62,14 +62,14 @@ const HexGrid = () => {
       recenterMap();
     } else {
       setIsWarping(true);
-      setZoomLevel(1.5); // Reduced zoom for better centering
+      setZoomLevel(1.25); // Gentle zoom to avoid clipping
       setFocusedWorkerId(worker.id);
       setTrackedWorkerId(worker.id);
       setTimeout(() => setIsWarping(false), 800);
-      // Auto-reset zoom after 8 seconds
+      // Auto-reset zoom after 10 seconds
       setTimeout(() => {
         setZoomLevel(1);
-      }, 8000);
+      }, 10000);
     }
   };
 
@@ -79,12 +79,16 @@ const HexGrid = () => {
 
   const focusedWorker = workers.find(w => w.id === focusedWorkerId);
 
-  // Calculate camera offset to center on focused worker
+  // Calculate camera offset to center on focused worker with clamping to prevent black screen
   const getCameraOffset = () => {
     if (!focusedWorker) return { x: 0, y: 0 };
     // Center the worker in viewport by calculating offset from center (50,50)
-    const offsetX = (50 - focusedWorker.position.x) * 2;
-    const offsetY = (50 - focusedWorker.position.y) * 2;
+    // Clamp the offset to prevent the grid from going off-screen
+    const rawOffsetX = (50 - focusedWorker.position.x) * 1.5;
+    const rawOffsetY = (50 - focusedWorker.position.y) * 1.5;
+    const maxOffset = 40; // Maximum offset percentage
+    const offsetX = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX));
+    const offsetY = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetY));
     return { x: offsetX, y: offsetY };
   };
 
@@ -362,6 +366,33 @@ const HexGrid = () => {
                     transition={{ duration: 1.5, repeat: Infinity }}
                   >
                     <div className="w-full h-full rounded-full border-2 border-ember/60" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Cyan Selection Ring - outer glow for focused worker */}
+              <AnimatePresence>
+                {isFocused && (
+                  <motion.div
+                    className="absolute -inset-8 pointer-events-none"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                  >
+                    {/* Pulsing outer ring */}
+                    <motion.div
+                      className="absolute inset-0 rounded-full border border-cyan/30"
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Inner selection ring */}
+                    <motion.div
+                      className="absolute inset-2 rounded-full border-2 border-cyan"
+                      animate={{ 
+                        boxShadow: ["0 0 15px rgba(0,242,255,0.6)", "0 0 30px rgba(0,242,255,0.9)", "0 0 15px rgba(0,242,255,0.6)"]
+                      }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>

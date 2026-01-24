@@ -1,10 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Circle, Maximize2, User, Target, Lock } from "lucide-react";
+import { Camera, Circle, Maximize2, User, Target, Lock, Signal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
 
 const LiveStreamPanel = () => {
   const [scanlinePos, setScanlinePos] = useState(0);
+  const [signalAcquired, setSignalAcquired] = useState(false);
   const { 
     workers, 
     trackedWorkerId, 
@@ -13,6 +14,7 @@ const LiveStreamPanel = () => {
     setFocusedWorkerId,
     setIsWarping,
     setZoomLevel,
+    isWarping,
   } = useSimulationStore();
   
   // Get tracked worker or default to first worker
@@ -37,6 +39,25 @@ const LiveStreamPanel = () => {
     }
   }, [focusedWorkerId, workers]);
 
+  // Show SIGNAL ACQUIRED when warp completes
+  useEffect(() => {
+    if (isWarping) {
+      setSignalAcquired(false);
+    }
+  }, [isWarping]);
+
+  useEffect(() => {
+    if (!isWarping && focusedWorkerId) {
+      // Slight delay after warp completes
+      const timer = setTimeout(() => {
+        setSignalAcquired(true);
+        // Hide after 2 seconds
+        setTimeout(() => setSignalAcquired(false), 2000);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isWarping, focusedWorkerId]);
+
   const handleCamSelect = (index: number) => {
     setCurrentCam(index);
     const worker = workers[index];
@@ -44,9 +65,9 @@ const LiveStreamPanel = () => {
       setTrackedWorkerId(worker.id);
       setFocusedWorkerId(worker.id);
       setIsWarping(true);
-      setZoomLevel(1.5);
+      setZoomLevel(1.25); // Match the reduced zoom level
       setTimeout(() => setIsWarping(false), 800);
-      setTimeout(() => setZoomLevel(1), 5000);
+      setTimeout(() => setZoomLevel(1), 10000);
     }
   };
 
@@ -113,6 +134,27 @@ const LiveStreamPanel = () => {
               >
                 <Lock className="w-3 h-3 text-cyan" />
                 <span className="text-[8px] font-mono text-cyan font-bold">TARGET LOCKED</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* SIGNAL ACQUIRED overlay - shows when zoom completes */}
+          <AnimatePresence>
+            {signalAcquired && (
+              <motion.div
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2 px-4 py-3 bg-cyan/20 border-2 border-cyan rounded-lg"
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                >
+                  <Signal className="w-6 h-6 text-cyan" />
+                </motion.div>
+                <span className="text-xs font-mono text-cyan font-bold tracking-wider">SIGNAL ACQUIRED</span>
               </motion.div>
             )}
           </AnimatePresence>
