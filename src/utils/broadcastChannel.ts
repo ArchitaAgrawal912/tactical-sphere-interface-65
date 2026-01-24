@@ -21,7 +21,10 @@ export type BroadcastMessageType =
   | "PROTOCOL_ACTIVATE"
   | "CLEAR_ALL"
   | "PING"
-  | "PONG";
+  | "PONG"
+  | "SITE_STATE_SYNC"      // Full site state packet
+  | "MASS_EMERGENCY"        // Site-wide emergency with multiple workers
+  | "SYNC_HEARTBEAT";       // Connection health check
 
 export interface BroadcastPayload {
   type: BroadcastMessageType;

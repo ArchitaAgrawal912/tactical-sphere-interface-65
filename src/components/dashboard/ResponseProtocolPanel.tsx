@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { 
-  getProtocolForIncident, 
+  getProtocolForIncident,
+  getSiteWideProtocol, 
   isProtocolComplete, 
   getProtocolProgress,
   ProtocolAction 
@@ -41,13 +42,18 @@ const ResponseProtocolPanel = () => {
     resolveActiveIncident,
     dismissProtocol,
     executedActions,
+    isSiteWideEmergency,
+    affectedWorkerIds,
   } = useSimulationStore();
 
   if (!activeIncident || !activeProtocol) {
     return null;
   }
 
-  const protocol = getProtocolForIncident(activeIncident);
+  // Use site-wide protocol if it's a mass emergency
+  const protocol = isSiteWideEmergency 
+    ? getSiteWideProtocol() 
+    : getProtocolForIncident(activeIncident);
   const progress = getProtocolProgress(protocol, activeProtocol);
   const canResolve = isProtocolComplete(protocol, activeProtocol) && 
                      activeProtocol.verificationStatus === "verified";
@@ -151,9 +157,20 @@ const ResponseProtocolPanel = () => {
         <p className={`text-[10px] font-mono font-bold tracking-wider uppercase ${getSeverityText()}`}>
           {protocol.name}
         </p>
-        <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
-          Worker: {activeIncident.workerId} | {activeIncident.workerName}
-        </p>
+        {isSiteWideEmergency ? (
+          <div className="mt-1">
+            <p className="text-[9px] font-mono text-danger font-bold">
+              ⚠️ {affectedWorkerIds.length} WORKERS AT RISK
+            </p>
+            <p className="text-[8px] font-mono text-muted-foreground mt-0.5">
+              {affectedWorkerIds.join(", ")}
+            </p>
+          </div>
+        ) : (
+          <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
+            Worker: {activeIncident.workerId} | {activeIncident.workerName}
+          </p>
+        )}
       </motion.div>
 
       {/* Progress Bar */}

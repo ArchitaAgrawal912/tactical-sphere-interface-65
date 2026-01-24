@@ -21,6 +21,7 @@ const CommsPanel = () => {
     activeProtocol,
     focusedWorkerId,
     activeIncident,
+    isSiteWideEmergency,
   } = useSimulationStore();
 
   const [command, setCommand] = useState("");
