@@ -11,10 +11,16 @@ import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
 
 const Dashboard = () => {
-  const { isGlitching, workers, incidents, isRunning, setIsRunning } = useSimulationStore();
+  const { isGlitching, workers, incidents, isRunning, setIsRunning, violationFlash } = useSimulationStore();
   
-  // Initialize simulation
-  useWorkerSim({ tickInterval: 10000, autoStart: true });
+  // Initialize simulation with 4-second movement, 15-second narrative
+  useWorkerSim({ 
+    movementInterval: 4000, 
+    biometricInterval: 200,
+    narrativeInterval: 15000,
+    incidentInterval: 10000,
+    autoStart: true 
+  });
 
   // Time display
   const [time, setTime] = useState(new Date());
@@ -29,7 +35,6 @@ const Dashboard = () => {
   }).replace(/\//g, ".");
 
   const activeAlerts = incidents.filter(i => !i.resolved && (i.severity === "critical" || i.severity === "high")).length;
-  const dangerWorkers = workers.filter(w => w.status === "danger" || w.status === "warning").length;
 
   return (
     <div className={`min-h-screen bg-obsidian relative overflow-hidden transition-all duration-200 ${
@@ -47,6 +52,18 @@ const Dashboard = () => {
         >
           <div className="absolute inset-0 bg-danger/20" />
           <div className="absolute inset-0 border-4 border-danger animate-pulse" />
+        </motion.div>
+      )}
+
+      {/* Violation flash overlay */}
+      {violationFlash && (
+        <motion.div
+          className="fixed inset-0 z-40 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.15, 0] }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="absolute inset-0 bg-[#FF8C00]/20" />
         </motion.div>
       )}
 
