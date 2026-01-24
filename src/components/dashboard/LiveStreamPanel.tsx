@@ -21,6 +21,9 @@ const LiveStreamPanel = () => {
     activeIncident,
     verifyIncident,
     markFalseAlarm,
+    criticalWorkerIds,
+    cycleToNextCritical,
+    isSiteWideEmergency,
   } = useSimulationStore();
   
   // Get tracked worker or default to first worker
@@ -32,6 +35,17 @@ const LiveStreamPanel = () => {
   const isPendingVerification = activeProtocol?.verificationStatus === "pending";
   const isVerified = activeProtocol?.verificationStatus === "verified";
   const isFalseAlarm = activeProtocol?.verificationStatus === "false_alarm";
+  
+  // Auto-cycle through critical workers when in site-wide emergency
+  useEffect(() => {
+    if (isSiteWideEmergency && criticalWorkerIds.length > 1) {
+      const cycleInterval = setInterval(() => {
+        cycleToNextCritical();
+      }, 3000); // Cycle every 3 seconds
+      
+      return () => clearInterval(cycleInterval);
+    }
+  }, [isSiteWideEmergency, criticalWorkerIds.length, cycleToNextCritical]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -104,6 +118,18 @@ const LiveStreamPanel = () => {
           <div className="flex items-center gap-2">
             <Camera className="w-3 h-3 text-cyan" />
             <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">Live Feed</span>
+            {/* Multi-target cycling indicator */}
+            {isSiteWideEmergency && criticalWorkerIds.length > 1 && (
+              <motion.div
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-danger/20 border border-danger/50 rounded"
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+              >
+                <span className="text-[7px] font-mono text-danger font-bold">
+                  CYCLING {criticalWorkerIds.length}
+                </span>
+              </motion.div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Circle className="w-2 h-2 fill-danger text-danger animate-pulse" />

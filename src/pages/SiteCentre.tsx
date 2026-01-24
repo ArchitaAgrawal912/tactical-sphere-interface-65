@@ -257,51 +257,66 @@ const SiteCentre = () => {
     showTransmitFeedback("ppe");
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
-  // Trigger gas leak
+  // Trigger gas leak - MASS EMERGENCY affecting multiple workers
   const handleGasLeak = useCallback(() => {
     triggerHaptic("heavy");
     const nearbyWorkers = workers.slice(0, 3);
+    const affectedWorkerIds = nearbyWorkers.map(w => w.id);
     
-    // Update multiple workers' status
+    // Update multiple workers' status locally
     nearbyWorkers.forEach(w => {
       updateWorker(w.id, { status: "danger" as const });
     });
     
     const incident = {
       id: `incident-${Date.now()}`,
-      workerId: "W-001",
+      workerId: affectedWorkerIds[0],
       workerName: workers[0].name,
       type: "environmental" as const,
       severity: "critical" as const,
       timestamp: Date.now(),
       position: { x: 0, y: 0 },
       resolved: false,
-      aiAnalysis: `🔴 CRITICAL: Gas leak detected in Sector Alpha. Environmental sensors reading dangerous levels. Multiple workers at risk. Immediate evacuation required.`,
+      aiAnalysis: `🔴 SITE-WIDE EMERGENCY: Gas leak detected in Sector Alpha. Environmental sensors reading CRITICAL levels. ${affectedWorkerIds.length} workers at immediate risk. Full site evacuation ordered.`,
     };
     
-    addIncident(incident);
-    addLog({
-      timestamp: formatTimestamp(),
-      type: "critical",
-      message: incident.aiAnalysis,
-      priority: 100,
-      incident,
-    });
+    // Create worker update packets for all affected workers
+    const workerUpdates = nearbyWorkers.map(w => ({
+      id: w.id,
+      updates: { status: "danger" as const }
+    }));
     
-    triggerGlitch();
-    triggerViolationFlash();
-    setLastAction("GAS LEAK - SECTOR ALPHA");
-    // Broadcast to other tabs via Ironclad Bridge
-    broadcast("NEW_INCIDENT", {
-      incident,
-      log: {
+    // Create log entries for each affected worker
+    const logs = [
+      {
         timestamp: formatTimestamp(),
         type: "critical" as const,
         message: incident.aiAnalysis,
         priority: 100,
         incident,
       },
-      workerUpdate: { id: "W-001", updates: { status: "danger" } },
+      ...nearbyWorkers.slice(1).map(w => ({
+        timestamp: formatTimestamp(),
+        type: "alert" as const,
+        message: `⚠️ AFFECTED: Worker ${w.id} (${w.name}) in hazard zone. Evacuate immediately.`,
+        workerId: w.id,
+        priority: 95,
+      })),
+    ];
+    
+    addIncident(incident);
+    logs.forEach(log => addLog(log));
+    
+    triggerGlitch();
+    triggerViolationFlash();
+    setLastAction(`MASS EMERGENCY - ${affectedWorkerIds.length} WORKERS`);
+    
+    // Broadcast MASS_EMERGENCY to other tabs - triggers site-wide protocol
+    broadcast("MASS_EMERGENCY", {
+      incident,
+      affectedWorkerIds,
+      workerUpdates,
+      logs,
       effects: { glitch: true, violationFlash: true },
     }, "site-centre");
     

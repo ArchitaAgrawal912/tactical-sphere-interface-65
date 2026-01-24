@@ -305,9 +305,79 @@ export const SAFETY_PROTOCOLS: Record<Incident["type"], ResponseProtocol> = {
   },
 };
 
+// SITE-WIDE EMERGENCY protocol (for mass incidents affecting multiple workers)
+export const SITE_WIDE_EMERGENCY_PROTOCOL: ResponseProtocol = {
+  id: "proto-site-wide",
+  name: "⚠️ SITE-WIDE EMERGENCY PROTOCOL",
+  severity: "critical",
+  color: "danger",
+  steps: [
+    {
+      id: "site-1",
+      action: "FULL SITE ALARM ACTIVATED",
+      description: "All sector sirens and emergency beacons engaged",
+      priority: "immediate",
+      automated: true,
+    },
+    {
+      id: "site-2",
+      action: "MASS EVACUATION ORDER",
+      description: "All personnel directed to emergency muster points",
+      priority: "immediate",
+      automated: true,
+    },
+    {
+      id: "site-3",
+      action: "EMERGENCY SERVICES DISPATCHED",
+      description: "Fire, Medical, and HazMat teams notified",
+      priority: "immediate",
+      automated: true,
+    },
+    {
+      id: "site-4",
+      action: "ALL MACHINERY EMERGENCY STOP",
+      description: "Site-wide equipment shutdown initiated",
+      priority: "high",
+      requiresConfirmation: true,
+    },
+    {
+      id: "site-5",
+      action: "PERIMETER LOCKDOWN",
+      description: "All entry/exit points secured",
+      priority: "high",
+      requiresConfirmation: true,
+    },
+    {
+      id: "site-6",
+      action: "HEAD COUNT VERIFICATION",
+      description: "All personnel accounted for at muster points",
+      priority: "high",
+      requiresConfirmation: true,
+    },
+    {
+      id: "site-7",
+      action: "INCIDENT COMMAND ACTIVATED",
+      description: "Emergency command center operational",
+      priority: "medium",
+      requiresConfirmation: true,
+    },
+  ],
+  actions: [
+    { id: "act-evac", label: "EVACUATE ALL", icon: "evacuate", type: "danger", automatedAction: "Full Site Evacuation" },
+    { id: "act-siren", label: "SITE ALARM", icon: "siren", type: "danger", automatedAction: "All Sirens Active" },
+    { id: "act-halt", label: "FULL STOP", icon: "halt", type: "danger", automatedAction: "All Equipment Halted" },
+    { id: "act-lock", label: "LOCKDOWN", icon: "lock", type: "primary", automatedAction: "Perimeter Secured" },
+  ],
+};
+
 // Get protocol for an incident type
 export const getProtocolForIncident = (incident: Incident): ResponseProtocol => {
   return SAFETY_PROTOCOLS[incident.type];
+};
+
+// Get site-wide emergency protocol
+export const getSiteWideProtocol = (): ResponseProtocol => {
+  return SITE_WIDE_EMERGENCY_PROTOCOL;
 };
 
 // Get initial active protocol state
@@ -322,6 +392,23 @@ export const createActiveProtocol = (incident: Incident): ActiveProtocol => {
     protocolId: protocol.id,
     incidentId: incident.id,
     workerId: incident.workerId,
+    startedAt: Date.now(),
+    completedSteps: autoCompleted,
+    verificationStatus: "pending",
+  };
+};
+
+// Create site-wide emergency protocol state
+export const createSiteWideProtocol = (incident: Incident, affectedWorkerIds: string[]): ActiveProtocol => {
+  const protocol = SITE_WIDE_EMERGENCY_PROTOCOL;
+  const autoCompleted = protocol.steps
+    .filter(s => s.automated)
+    .map(s => s.id);
+
+  return {
+    protocolId: protocol.id,
+    incidentId: incident.id,
+    workerId: affectedWorkerIds.join(","), // Comma-separated list
     startedAt: Date.now(),
     completedSteps: autoCompleted,
     verificationStatus: "pending",

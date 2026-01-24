@@ -8,7 +8,7 @@ import MetricsPanel from "@/components/dashboard/MetricsPanel";
 import ResponseProtocolPanel from "@/components/dashboard/ResponseProtocolPanel";
 import SystemsNominalPanel from "@/components/dashboard/SystemsNominalPanel";
 import Scanlines from "@/components/Scanlines";
-import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff, Cpu, Wifi } from "lucide-react";
+import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff, Cpu, Wifi, Link2 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
 import { useBroadcastSync } from "@/hooks/useBroadcastSync";
@@ -29,6 +29,9 @@ const Dashboard = () => {
     scrollToLatestAlert,
     activeProtocol,
     activateProtocol,
+    isSyncActive,
+    lastSyncTimestamp,
+    isSiteWideEmergency,
   } = useSimulationStore();
   
   // Initialize simulation with 4-second movement, 15-second narrative
@@ -135,6 +138,30 @@ const Dashboard = () => {
                 <span className="text-[9px] font-mono text-muted-foreground">SIGNAL: STABLE</span>
               </div>
             </div>
+            
+            {/* Site Centre Sync Status Indicator */}
+            <motion.div 
+              className={`hidden lg:flex items-center gap-1.5 px-2 py-1 rounded border transition-all ${
+                isSyncActive 
+                  ? 'border-cyan/30 bg-cyan/5'
+                  : 'border-danger/30 bg-danger/5'
+              }`}
+              animate={isSiteWideEmergency ? { 
+                borderColor: ['rgba(255,0,0,0.3)', 'rgba(255,0,0,0.8)', 'rgba(255,0,0,0.3)'],
+                backgroundColor: ['rgba(255,0,0,0.05)', 'rgba(255,0,0,0.15)', 'rgba(255,0,0,0.05)'],
+              } : {}}
+              transition={{ duration: 0.5, repeat: Infinity }}
+            >
+              <motion.div
+                className={`w-1.5 h-1.5 rounded-full ${isSyncActive ? 'bg-cyan' : 'bg-danger'}`}
+                animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              />
+              <Link2 className={`w-3 h-3 ${isSyncActive ? 'text-cyan/70' : 'text-danger/70'}`} />
+              <span className={`text-[9px] font-mono ${isSyncActive ? 'text-cyan' : 'text-danger'}`}>
+                {isSiteWideEmergency ? 'EMERGENCY SYNC' : isSyncActive ? 'SYNCED' : 'OFFLINE'}
+              </span>
+            </motion.div>
           </div>
 
           <div className="flex items-center gap-3">

@@ -14,8 +14,8 @@ import {
 } from "@/utils/simEngine";
 import { 
   ActiveProtocol, 
-  createActiveProtocol, 
-  getProtocolForIncident 
+  createActiveProtocol,
+  createSiteWideProtocol,
 } from "@/utils/safetyProtocols";
 
 interface SimulationState {
@@ -89,13 +89,28 @@ interface SimulationState {
   activeProtocol: ActiveProtocol | null;
   executedActions: string[];
   resolvedIncidents: Incident[];
+  isSiteWideEmergency: boolean;
+  affectedWorkerIds: string[];
   activateProtocol: (incident: Incident) => void;
+  activateSiteWideProtocol: (incident: Incident, affectedWorkerIds: string[]) => void;
   toggleProtocolStep: (stepId: string) => void;
   executeProtocolAction: (actionId: string) => void;
   verifyIncident: () => void;
   markFalseAlarm: () => void;
   resolveActiveIncident: () => void;
   dismissProtocol: () => void;
+  
+  // Sync status
+  isSyncActive: boolean;
+  lastSyncTimestamp: number;
+  setSyncActive: (active: boolean) => void;
+  updateSyncTimestamp: () => void;
+  
+  // Camera cycling for multi-critical
+  criticalWorkerIds: string[];
+  currentCycleIndex: number;
+  setCriticalWorkerIds: (ids: string[]) => void;
+  cycleToNextCritical: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -454,6 +469,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   activeProtocol: null,
   executedActions: [],
   resolvedIncidents: [],
+  isSiteWideEmergency: false,
+  affectedWorkerIds: [],
 
   activateProtocol: (incident: Incident) => {
     const protocol = createActiveProtocol(incident);
@@ -463,6 +480,25 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       executedActions: [],
       focusedWorkerId: incident.workerId,
       trackedWorkerId: incident.workerId,
+      isSiteWideEmergency: false,
+      affectedWorkerIds: [incident.workerId],
+    });
+  },
+
+  activateSiteWideProtocol: (incident: Incident, affectedWorkerIds: string[]) => {
+    const protocol = createSiteWideProtocol(incident, affectedWorkerIds);
+    set({ 
+      activeProtocol: protocol,
+      activeIncident: incident,
+      executedActions: [],
+      isSiteWideEmergency: true,
+      affectedWorkerIds,
+      // Zoom out to show all affected workers
+      zoomLevel: 0.6,
+      focusedWorkerId: null,
+      trackedWorkerId: null,
+      criticalWorkerIds: affectedWorkerIds,
+      currentCycleIndex: 0,
     });
   },
 
@@ -592,6 +628,32 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       activeProtocol: null,
       activeIncident: null,
       executedActions: [],
+      isSiteWideEmergency: false,
+      affectedWorkerIds: [],
+      criticalWorkerIds: [],
+    });
+  },
+  
+  // Sync status
+  isSyncActive: true,
+  lastSyncTimestamp: Date.now(),
+  setSyncActive: (active) => set({ isSyncActive: active }),
+  updateSyncTimestamp: () => set({ lastSyncTimestamp: Date.now() }),
+  
+  // Camera cycling for multi-critical workers
+  criticalWorkerIds: [],
+  currentCycleIndex: 0,
+  setCriticalWorkerIds: (ids) => set({ criticalWorkerIds: ids, currentCycleIndex: 0 }),
+  cycleToNextCritical: () => {
+    const state = get();
+    if (state.criticalWorkerIds.length === 0) return;
+    
+    const nextIndex = (state.currentCycleIndex + 1) % state.criticalWorkerIds.length;
+    const nextWorkerId = state.criticalWorkerIds[nextIndex];
+    
+    set({ 
+      currentCycleIndex: nextIndex,
+      trackedWorkerId: nextWorkerId,
     });
   },
 }));
