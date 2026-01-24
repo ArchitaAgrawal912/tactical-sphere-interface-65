@@ -92,7 +92,7 @@ const Dashboard = () => {
 
       {/* Top header bar */}
       <motion.header 
-        className={`fixed top-0 left-0 right-0 z-50 glass-panel border-b px-6 py-3 transition-colors ${
+        className={`fixed top-0 left-0 right-0 z-50 glass-panel border-b px-4 py-2 transition-colors ${
           isGlitching ? 'border-danger/50' : 'border-cyan/20'
         }`}
         initial={{ y: -100 }}
@@ -100,46 +100,46 @@ const Dashboard = () => {
         transition={{ delay: 0.1 }}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Shield className={`w-6 h-6 ${isGlitching ? 'text-danger' : 'text-cyan'}`} />
-              <span className={`font-orbitron font-bold tracking-wider ${isGlitching ? 'text-danger' : 'text-cyan'}`}>
+              <Shield className={`w-5 h-5 ${isGlitching ? 'text-danger' : 'text-cyan'}`} />
+              <span className={`font-orbitron font-bold text-sm tracking-wider ${isGlitching ? 'text-danger' : 'text-cyan'}`}>
                 GUARDIAN VISION
               </span>
             </div>
-            <div className="h-4 w-px bg-cyan/30" />
-            <span className="hud-label">Industrial Safety Command Center</span>
+            <div className="h-4 w-px bg-cyan/30 hidden sm:block" />
+            <span className="hud-label hidden md:block text-[10px]">Industrial Safety Command</span>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             {/* Simulation controls */}
             <button
               onClick={() => setIsRunning(!isRunning)}
-              className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all ${
+              className={`hud-button flex items-center gap-1.5 px-2.5 py-1 rounded border transition-all ${
                 isRunning 
                   ? 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)]' 
                   : 'bg-ember/10 border-ember/30 text-ember hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_10px_rgba(255,191,0,0.3)]'
               } active:scale-95`}
             >
               {isRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              <span className="text-xs font-mono">{isRunning ? 'PAUSE' : 'RESUME'}</span>
+              <span className="text-[10px] font-mono hidden sm:inline">{isRunning ? 'PAUSE' : 'RESUME'}</span>
             </button>
 
             {/* Recenter button */}
             <button
               onClick={recenterMap}
-              className="hud-button flex items-center gap-2 px-3 py-1 rounded border border-cyan/30 text-cyan bg-cyan/10 hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] transition-all active:scale-95"
+              className="hud-button flex items-center gap-1.5 px-2.5 py-1 rounded border border-cyan/30 text-cyan bg-cyan/10 hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] transition-all active:scale-95"
             >
               <RotateCcw className="w-3 h-3" />
-              <span className="text-xs font-mono">RECENTER</span>
+              <span className="text-[10px] font-mono hidden sm:inline">RECENTER</span>
             </button>
 
             {/* Stats pills */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* Workers visibility toggle */}
               <button
                 onClick={toggleWorkersVisibility}
-                className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all active:scale-95 ${
+                className={`hud-button flex items-center gap-1.5 px-2.5 py-1 rounded border transition-all active:scale-95 ${
                   showWorkers
                     ? 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)]'
                     : 'bg-muted/10 border-muted/30 text-muted-foreground hover:border-muted hover:bg-muted/20'
@@ -147,13 +147,13 @@ const Dashboard = () => {
               >
                 {showWorkers ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                 <Users className="w-3 h-3" />
-                <span className="text-xs font-mono">{workers.length} ACTIVE</span>
+                <span className="text-[10px] font-mono hidden sm:inline">{workers.length}</span>
               </button>
               
               {/* Alerts badge - clickable */}
               <motion.button
                 onClick={handleAlertsClick}
-                className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all active:scale-95 ${
+                className={`hud-button flex items-center gap-1.5 px-2.5 py-1 rounded border transition-all active:scale-95 ${
                   activeAlerts > 0 
                     ? 'bg-ember/10 border-ember/30 hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_10px_rgba(255,191,0,0.3)]' 
                     : 'bg-muted/10 border-muted/30 hover:bg-muted/20'
@@ -162,23 +162,23 @@ const Dashboard = () => {
                 transition={{ duration: 1, repeat: Infinity }}
               >
                 <AlertTriangle className={`w-3 h-3 ${activeAlerts > 0 ? 'text-ember' : 'text-muted-foreground'}`} />
-                <span className={`text-xs font-mono ${activeAlerts > 0 ? 'text-ember' : 'text-muted-foreground'}`}>
-                  {activeAlerts} ALERTS
+                <span className={`text-[10px] font-mono ${activeAlerts > 0 ? 'text-ember' : 'text-muted-foreground'}`}>
+                  {activeAlerts}
                 </span>
               </motion.button>
             </div>
 
-            <div className="h-4 w-px bg-cyan/30" />
+            <div className="h-4 w-px bg-cyan/30 hidden sm:block" />
 
             {/* Notifications */}
             <button 
               onClick={handleAlertsClick}
-              className="hud-button relative p-2 hover:bg-cyan/10 rounded transition-all hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] active:scale-95"
+              className="hud-button relative p-1.5 hover:bg-cyan/10 rounded transition-all hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] active:scale-95"
             >
               <Bell className="w-4 h-4 text-cyan" />
               {activeAlerts > 0 && (
                 <motion.span 
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-ember rounded-full text-[8px] flex items-center justify-center text-obsidian font-bold"
+                  className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-ember rounded-full text-[7px] flex items-center justify-center text-obsidian font-bold"
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ duration: 0.5, repeat: Infinity }}
                 >
@@ -188,50 +188,117 @@ const Dashboard = () => {
             </button>
 
             {/* Time display */}
-            <div className="text-right">
-              <p className="font-mono text-cyan text-sm">{formatTime(time)}</p>
-              <p className="font-mono text-muted-foreground text-[10px]">{formatDate(time)}</p>
+            <div className="text-right hidden md:block">
+              <p className="font-mono text-cyan text-xs">{formatTime(time)}</p>
+              <p className="font-mono text-muted-foreground text-[9px]">{formatDate(time)}</p>
             </div>
           </div>
         </div>
       </motion.header>
 
-      {/* Main dashboard layout */}
-      <main className="pt-20 min-h-screen relative">
-        {/* Corner HUD panels - z-30 to stay below header */}
-        <div className="fixed top-24 left-4 z-30 hidden xl:block">
-          <VitalsPanel />
+      {/* Main dashboard layout - Bento Grid */}
+      <main className="pt-14 min-h-screen relative">
+        {/* Desktop Bento Layout */}
+        <div className="hidden xl:grid xl:grid-cols-[280px_1fr_280px] xl:grid-rows-[auto_1fr_auto] gap-4 p-4 h-[calc(100vh-56px)]">
+          {/* Left column - Vitals */}
+          <div className="row-span-2 flex flex-col gap-4">
+            <VitalsPanel />
+          </div>
+
+          {/* Center - Tactical Grid */}
+          <div className="row-span-3 flex items-center justify-center p-4 relative">
+            <motion.div
+              className="w-full max-w-[600px] aspect-square"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <HexGrid />
+            </motion.div>
+          </div>
+
+          {/* Right column - top */}
+          <div className="flex flex-col gap-4">
+            <LiveStreamPanel />
+          </div>
+
+          {/* Right column - bottom (Protocol or Metrics) */}
+          <div className="row-span-2">
+            <AnimatePresence mode="wait">
+              {activeProtocol ? (
+                <ResponseProtocolPanel key="protocol" />
+              ) : (
+                <MetricsPanel key="metrics" />
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Left column - bottom (Comms) */}
+          <div className="self-end">
+            <CommsPanel />
+          </div>
         </div>
 
-        <div className="fixed top-24 right-4 z-30 hidden xl:block">
-          <LiveStreamPanel />
+        {/* Tablet/Large screen layout */}
+        <div className="hidden lg:grid xl:hidden lg:grid-cols-[260px_1fr_260px] gap-4 p-4 h-[calc(100vh-56px)]">
+          {/* Left column */}
+          <div className="flex flex-col gap-4 overflow-y-auto">
+            <VitalsPanel />
+            <CommsPanel />
+          </div>
+
+          {/* Center - Tactical Grid */}
+          <div className="flex items-center justify-center">
+            <motion.div
+              className="w-full max-w-[500px] aspect-square"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <HexGrid />
+            </motion.div>
+          </div>
+
+          {/* Right column */}
+          <div className="flex flex-col gap-4 overflow-y-auto">
+            <LiveStreamPanel />
+            <AnimatePresence mode="wait">
+              {activeProtocol ? (
+                <ResponseProtocolPanel key="protocol" />
+              ) : (
+                <MetricsPanel key="metrics" />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        <div className="fixed bottom-4 left-4 z-30 hidden xl:block">
-          <CommsPanel />
-        </div>
+        {/* Mobile/Small screen layout */}
+        <div className="lg:hidden flex flex-col gap-4 p-4">
+          {/* Tactical Grid centered */}
+          <div className="flex items-center justify-center">
+            <motion.div
+              className="w-full max-w-[400px] aspect-square"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <HexGrid />
+            </motion.div>
+          </div>
 
-        {/* Bottom right - Response Protocol Panel OR Metrics Panel */}
-        <div className="fixed bottom-4 right-4 z-30 hidden xl:block">
-          <AnimatePresence mode="wait">
-            {activeProtocol ? (
-              <ResponseProtocolPanel key="protocol" />
-            ) : (
-              <MetricsPanel key="metrics" />
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Central hex grid */}
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-8">
-          <motion.div
-            className="w-full max-w-[800px]"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-          >
-            <HexGrid />
-          </motion.div>
+          {/* Scrollable panels below */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <VitalsPanel />
+            <LiveStreamPanel />
+            <CommsPanel />
+            <AnimatePresence mode="wait">
+              {activeProtocol ? (
+                <ResponseProtocolPanel key="protocol" />
+              ) : (
+                <MetricsPanel key="metrics" />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Ambient grid background */}
