@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { broadcast } from "@/utils/broadcastChannel";
-import { toast } from "sonner";
 
 // Haptic feedback helper
 
@@ -50,6 +49,13 @@ const SiteCentre = () => {
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [connectionLatency] = useState(Math.floor(Math.random() * 15) + 8);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [transmittedButton, setTransmittedButton] = useState<string | null>(null);
+
+  // Show "PACKET TRANSMITTED" visual feedback on button
+  const showTransmitFeedback = (buttonId: string) => {
+    setTransmittedButton(buttonId);
+    setTimeout(() => setTransmittedButton(null), 1200);
+  };
 
   // Format current timestamp
   const formatTimestamp = () => {
@@ -98,12 +104,8 @@ const SiteCentre = () => {
       effects: { glitch: true, violationFlash: true },
     }, "site-centre");
     
-    // Toast confirmation
-    toast.success("Packet Sent ✅", {
-      description: "FALL incident broadcast to Control Office",
-      duration: 2000,
-    });
-    
+    // Visual feedback
+    showTransmitFeedback("fall");
     setLastAction("FALL DETECTED - W-004");
   }, [workers, addIncident, addLog, updateWorker, triggerGlitch, triggerViolationFlash]);
 
@@ -142,7 +144,7 @@ const SiteCentre = () => {
       
       triggerViolationFlash();
       setLastAction(`ZONE BREACH - ${worker.id}`);
-      // Broadcast to other tabs via BroadcastChannel API
+      // Broadcast to other tabs via Ironclad Bridge
       broadcast("NEW_INCIDENT", {
         incident,
         log: {
@@ -157,10 +159,9 @@ const SiteCentre = () => {
         effects: { violationFlash: true },
       }, "site-centre");
       
-      toast.success("Packet Sent ✅", {
-        description: `ZONE BREACH broadcast for ${worker.id}`,
-        duration: 2000,
-      });
+      // Visual feedback
+      showTransmitFeedback("zone");
+      setLastAction(`ZONE BREACH - ${worker.id}`);
     }
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
@@ -200,7 +201,7 @@ const SiteCentre = () => {
     
     triggerViolationFlash();
     setLastAction(`PPE ERROR - ${randomWorker.id}`);
-    // Broadcast to other tabs via BroadcastChannel API
+    // Broadcast to other tabs via Ironclad Bridge
     broadcast("NEW_INCIDENT", {
       incident,
       log: {
@@ -215,10 +216,8 @@ const SiteCentre = () => {
       effects: { violationFlash: true },
     }, "site-centre");
     
-    toast.success("Packet Sent ✅", {
-      description: `PPE violation broadcast for ${randomWorker.id}`,
-      duration: 2000,
-    });
+    // Visual feedback
+    showTransmitFeedback("ppe");
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
   // Trigger gas leak
@@ -255,7 +254,7 @@ const SiteCentre = () => {
     triggerGlitch();
     triggerViolationFlash();
     setLastAction("GAS LEAK - SECTOR ALPHA");
-    // Broadcast to other tabs via BroadcastChannel API
+    // Broadcast to other tabs via Ironclad Bridge
     broadcast("NEW_INCIDENT", {
       incident,
       log: {
@@ -269,10 +268,8 @@ const SiteCentre = () => {
       effects: { glitch: true, violationFlash: true },
     }, "site-centre");
     
-    toast.success("Packet Sent ✅", {
-      description: "GAS LEAK broadcast to Control Office",
-      duration: 2000,
-    });
+    // Visual feedback
+    showTransmitFeedback("gas");
   }, [workers, updateWorker, addIncident, addLog, triggerGlitch, triggerViolationFlash]);
 
   // Send broadcast message with cross-tab sync
@@ -291,14 +288,11 @@ const SiteCentre = () => {
     // Update local state
     addLog(log);
     
-    // Broadcast to other tabs via BroadcastChannel API
+    // Broadcast to other tabs via Ironclad Bridge
     broadcast("BROADCAST_MESSAGE", log, "site-centre");
     
-    toast.success("Packet Sent ✅", {
-      description: "Message broadcast to Control Office",
-      duration: 2000,
-    });
-    
+    // Visual feedback
+    showTransmitFeedback("msg");
     setBroadcastMsg("");
     setLastAction("BROADCAST SENT");
   }, [broadcastMsg, addLog]);
@@ -416,49 +410,113 @@ const SiteCentre = () => {
             {/* Trigger Fall */}
             <motion.button
               onClick={handleTriggerFall}
-              className="relative flex flex-col items-center justify-center gap-2 p-6 bg-danger/10 border-2 border-danger/50 rounded-lg text-danger hover:bg-danger/20 hover:border-danger transition-all active:scale-95"
+              className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 transition-all active:scale-95 ${
+                transmittedButton === "fall"
+                  ? "bg-success/20 border-success text-success-glow"
+                  : "bg-danger/10 border-danger/50 text-danger hover:bg-danger/20 hover:border-danger"
+              }`}
               whileTap={{ scale: 0.95 }}
-              whileHover={{ boxShadow: "0 0 20px rgba(255, 0, 0, 0.4)" }}
+              whileHover={transmittedButton !== "fall" ? { boxShadow: "0 0 20px hsl(var(--danger) / 0.4)" } : {}}
             >
+              {transmittedButton === "fall" && (
+                <motion.div
+                  className="absolute inset-0 bg-success/10 rounded-lg"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 1 }}
+                />
+              )}
               <Skull className="w-8 h-8" />
-              <span className="text-xs font-mono font-bold uppercase">Trigger Fall</span>
-              <span className="text-[8px] font-mono opacity-60">W-004</span>
+              <span className="text-xs font-mono font-bold uppercase">
+                {transmittedButton === "fall" ? "TRANSMITTED ✓" : "Trigger Fall"}
+              </span>
+              <span className="text-[8px] font-mono opacity-60">
+                {transmittedButton === "fall" ? "PACKET SENT" : "W-004"}
+              </span>
             </motion.button>
 
             {/* Zone Breach */}
             <motion.button
               onClick={handleZoneBreach}
-              className="relative flex flex-col items-center justify-center gap-2 p-6 bg-ember/10 border-2 border-ember/50 rounded-lg text-ember hover:bg-ember/20 hover:border-ember transition-all active:scale-95"
+              className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 transition-all active:scale-95 ${
+                transmittedButton === "zone"
+                  ? "bg-success/20 border-success text-success-glow"
+                  : "bg-ember/10 border-ember/50 text-ember hover:bg-ember/20 hover:border-ember"
+              }`}
               whileTap={{ scale: 0.95 }}
-              whileHover={{ boxShadow: "0 0 20px rgba(255, 191, 0, 0.4)" }}
+              whileHover={transmittedButton !== "zone" ? { boxShadow: "0 0 20px hsl(var(--ember) / 0.4)" } : {}}
             >
+              {transmittedButton === "zone" && (
+                <motion.div
+                  className="absolute inset-0 bg-success/10 rounded-lg"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 1 }}
+                />
+              )}
               <Shield className="w-8 h-8" />
-              <span className="text-xs font-mono font-bold uppercase">Zone Breach</span>
-              <span className="text-[8px] font-mono opacity-60">Restricted Area</span>
+              <span className="text-xs font-mono font-bold uppercase">
+                {transmittedButton === "zone" ? "TRANSMITTED ✓" : "Zone Breach"}
+              </span>
+              <span className="text-[8px] font-mono opacity-60">
+                {transmittedButton === "zone" ? "PACKET SENT" : "Restricted Area"}
+              </span>
             </motion.button>
 
             {/* PPE Error */}
             <motion.button
               onClick={handlePPEError}
-              className="relative flex flex-col items-center justify-center gap-2 p-6 bg-ember/10 border-2 border-ember/50 rounded-lg text-ember hover:bg-ember/20 hover:border-ember transition-all active:scale-95"
+              className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 transition-all active:scale-95 ${
+                transmittedButton === "ppe"
+                  ? "bg-success/20 border-success text-success-glow"
+                  : "bg-ember/10 border-ember/50 text-ember hover:bg-ember/20 hover:border-ember"
+              }`}
               whileTap={{ scale: 0.95 }}
-              whileHover={{ boxShadow: "0 0 20px rgba(255, 191, 0, 0.4)" }}
+              whileHover={transmittedButton !== "ppe" ? { boxShadow: "0 0 20px hsl(var(--ember) / 0.4)" } : {}}
             >
+              {transmittedButton === "ppe" && (
+                <motion.div
+                  className="absolute inset-0 bg-success/10 rounded-lg"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 1 }}
+                />
+              )}
               <UserX className="w-8 h-8" />
-              <span className="text-xs font-mono font-bold uppercase">PPE Error</span>
-              <span className="text-[8px] font-mono opacity-60">Random Worker</span>
+              <span className="text-xs font-mono font-bold uppercase">
+                {transmittedButton === "ppe" ? "TRANSMITTED ✓" : "PPE Error"}
+              </span>
+              <span className="text-[8px] font-mono opacity-60">
+                {transmittedButton === "ppe" ? "PACKET SENT" : "Random Worker"}
+              </span>
             </motion.button>
 
             {/* Gas Leak */}
             <motion.button
               onClick={handleGasLeak}
-              className="relative flex flex-col items-center justify-center gap-2 p-6 bg-danger/10 border-2 border-danger/50 rounded-lg text-danger hover:bg-danger/20 hover:border-danger transition-all active:scale-95"
+              className={`relative flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 transition-all active:scale-95 ${
+                transmittedButton === "gas"
+                  ? "bg-success/20 border-success text-success-glow"
+                  : "bg-danger/10 border-danger/50 text-danger hover:bg-danger/20 hover:border-danger"
+              }`}
               whileTap={{ scale: 0.95 }}
-              whileHover={{ boxShadow: "0 0 20px rgba(255, 0, 0, 0.4)" }}
+              whileHover={transmittedButton !== "gas" ? { boxShadow: "0 0 20px hsl(var(--danger) / 0.4)" } : {}}
             >
+              {transmittedButton === "gas" && (
+                <motion.div
+                  className="absolute inset-0 bg-success/10 rounded-lg"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 1 }}
+                />
+              )}
               <Flame className="w-8 h-8" />
-              <span className="text-xs font-mono font-bold uppercase">Gas Leak</span>
-              <span className="text-[8px] font-mono opacity-60">Sector Alpha</span>
+              <span className="text-xs font-mono font-bold uppercase">
+                {transmittedButton === "gas" ? "TRANSMITTED ✓" : "Gas Leak"}
+              </span>
+              <span className="text-[8px] font-mono opacity-60">
+                {transmittedButton === "gas" ? "PACKET SENT" : "Sector Alpha"}
+              </span>
             </motion.button>
           </div>
         </motion.div>

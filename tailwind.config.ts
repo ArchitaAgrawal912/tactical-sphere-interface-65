@@ -35,6 +35,10 @@ export default {
           DEFAULT: "hsl(var(--danger))",
           glow: "hsl(var(--danger-glow))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          glow: "hsl(var(--success-glow))",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
