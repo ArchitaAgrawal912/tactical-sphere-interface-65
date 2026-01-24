@@ -1,10 +1,11 @@
-import { motion } from "framer-motion";
-import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 import HexGrid from "@/components/dashboard/HexGrid";
 import VitalsPanel from "@/components/dashboard/VitalsPanel";
 import LiveStreamPanel from "@/components/dashboard/LiveStreamPanel";
 import CommsPanel from "@/components/dashboard/CommsPanel";
 import MetricsPanel from "@/components/dashboard/MetricsPanel";
+import ResponseProtocolPanel from "@/components/dashboard/ResponseProtocolPanel";
 import Scanlines from "@/components/Scanlines";
 import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
@@ -22,6 +23,8 @@ const Dashboard = () => {
     toggleWorkersVisibility,
     recenterMap,
     scrollToLatestAlert,
+    activeProtocol,
+    activateProtocol,
   } = useSimulationStore();
   
   // Initialize simulation with 4-second movement, 15-second narrative
@@ -49,6 +52,11 @@ const Dashboard = () => {
 
   const handleAlertsClick = () => {
     scrollToLatestAlert();
+    // If there's a critical/high incident without an active protocol, activate it
+    const unhandledIncident = incidents.find(i => !i.resolved && (i.severity === "critical" || i.severity === "high"));
+    if (unhandledIncident && !activeProtocol) {
+      activateProtocol(unhandledIncident);
+    }
   };
 
   return (
@@ -203,8 +211,15 @@ const Dashboard = () => {
           <CommsPanel />
         </div>
 
+        {/* Bottom right - Response Protocol Panel OR Metrics Panel */}
         <div className="fixed bottom-4 right-4 z-30 hidden xl:block">
-          <MetricsPanel />
+          <AnimatePresence mode="wait">
+            {activeProtocol ? (
+              <ResponseProtocolPanel key="protocol" />
+            ) : (
+              <MetricsPanel key="metrics" />
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Central hex grid */}
