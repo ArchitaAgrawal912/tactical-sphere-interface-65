@@ -52,7 +52,7 @@ const VitalsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-tl p-3 w-full max-w-[280px]"
+      className="glass-panel clip-corner-tl p-3 w-full"
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.2 }}
