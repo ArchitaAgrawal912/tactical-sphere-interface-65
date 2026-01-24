@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, AlertTriangle, ChevronRight } from "lucide-react";
+import { Terminal, AlertTriangle, ChevronRight, Radio } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useState, useEffect, useRef } from "react";
 
@@ -14,10 +14,12 @@ const CommsPanel = () => {
     triggerManualIncident,
     alertScrollTrigger,
     workers,
+    triggerSonarPulse,
   } = useSimulationStore();
 
   const [command, setCommand] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top when alertScrollTrigger changes
@@ -26,6 +28,14 @@ const CommsPanel = () => {
       scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [alertScrollTrigger]);
+
+  // Clear feedback after 2 seconds
+  useEffect(() => {
+    if (commandFeedback) {
+      const timer = setTimeout(() => setCommandFeedback(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [commandFeedback]);
 
   const handleLogClick = (log: typeof logs[0]) => {
     if (log.incident) {
@@ -44,18 +54,27 @@ const CommsPanel = () => {
       const cmd = command.trim().toUpperCase();
       setCommandHistory(prev => [...prev, cmd]);
       
-      if (cmd === "RESET") {
+      if (cmd === "CLEAR" || cmd === "RESET") {
         clearLogs();
-      } else if (cmd.startsWith("FALL ")) {
-        const workerId = cmd.replace("FALL ", "").trim();
+        setCommandFeedback("✓ Log cleared");
+      } else if (cmd.startsWith("EMERGENCY ") || cmd.startsWith("FALL ")) {
+        const workerId = cmd.replace("EMERGENCY ", "").replace("FALL ", "").trim();
         // Format worker ID properly
         const formattedId = workerId.startsWith("W-") ? workerId : `W-${workerId.padStart(3, "0")}`;
         const worker = workers.find(w => w.id === formattedId);
         if (worker) {
           triggerManualIncident(formattedId, "fall");
+          setCommandFeedback(`✓ Emergency triggered for ${formattedId}`);
+        } else {
+          setCommandFeedback(`✗ Worker ${formattedId} not found`);
         }
+      } else if (cmd === "SCAN") {
+        triggerSonarPulse();
+        setCommandFeedback("✓ Sonar pulse initiated");
       } else if (cmd === "HELP") {
-        // Could add help message to logs
+        setCommandFeedback("Commands: CLEAR, EMERGENCY [ID], SCAN");
+      } else {
+        setCommandFeedback(`✗ Unknown command: ${cmd}`);
       }
       
       setCommand("");
@@ -113,7 +132,7 @@ const CommsPanel = () => {
       {/* Terminal output */}
       <div 
         ref={scrollRef}
-        className="h-52 overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 p-2 scrollbar-thin scrollbar-thumb-cyan/20 scrollbar-track-transparent"
+        className="h-44 overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 p-2 scrollbar-thin scrollbar-thumb-cyan/20 scrollbar-track-transparent"
       >
         <div className="space-y-1.5">
           <AnimatePresence mode="popLayout">
@@ -170,9 +189,45 @@ const CommsPanel = () => {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           onKeyDown={handleCommand}
-          placeholder="RESET | FALL 001"
+          placeholder="CLEAR | EMERGENCY 01 | SCAN"
           className="flex-1 bg-transparent text-xs font-mono text-cyan placeholder:text-muted-foreground/50 focus:outline-none"
         />
+      </div>
+
+      {/* Command feedback */}
+      <AnimatePresence>
+        {commandFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className={`mt-1 text-[10px] font-mono ${commandFeedback.startsWith("✓") ? "text-cyan" : "text-ember"}`}
+          >
+            {commandFeedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Live voice waveform simulation */}
+      <div className="flex items-center gap-2 mt-3 px-2 py-1.5 bg-obsidian/50 rounded border border-cyan/10">
+        <Radio className="w-3 h-3 text-cyan/60" />
+        <span className="text-[9px] font-mono text-muted-foreground">COMMS</span>
+        <div className="flex items-center gap-0.5 ml-auto">
+          {[...Array(12)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="w-0.5 bg-cyan/60 rounded-full"
+              animate={{
+                height: [3, Math.random() * 10 + 4, 3],
+              }}
+              transition={{
+                duration: 0.3 + Math.random() * 0.3,
+                repeat: Infinity,
+                delay: i * 0.05,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Quick stats */}
