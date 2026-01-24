@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSimulationStore } from "@/store/simulationStore";
 import { WorkerTelemetry } from "@/utils/simEngine";
 import { RotateCcw } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
 
 const HexGrid = () => {
   const { 
@@ -10,16 +11,20 @@ const HexGrid = () => {
     setFocusedWorkerId,
     isWarping,
     zoomLevel,
-    activeIncident,
-    setActiveIncident,
-    setIsWarping,
     setZoomLevel,
+    activeIncident,
+    setIsWarping,
     setTrackedWorkerId,
     showWorkers,
     highlightedPPEType,
     recenterMap,
     sonarPulseActive,
   } = useSimulationStore();
+
+  // Drag state for pan functionality
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const getStatusColor = (worker: WorkerTelemetry) => {
     // Safety Orange (#FF8C00) for workers in restricted zones
@@ -56,15 +61,18 @@ const HexGrid = () => {
   };
 
   const handleWorkerClick = (worker: WorkerTelemetry) => {
+    if (isDragging) return; // Don't trigger click during drag
+    
     const isFocused = focusedWorkerId === worker.id;
     if (isFocused) {
       // Clicking focused worker recenters
-      recenterMap();
+      handleRecenter();
     } else {
       setIsWarping(true);
       setZoomLevel(1.25); // Gentle zoom to avoid clipping
       setFocusedWorkerId(worker.id);
       setTrackedWorkerId(worker.id);
+      setDragOffset({ x: 0, y: 0 }); // Reset drag on focus
       setTimeout(() => setIsWarping(false), 800);
       // Auto-reset zoom after 10 seconds
       setTimeout(() => {
@@ -73,20 +81,29 @@ const HexGrid = () => {
     }
   };
 
-  const handleCenterClick = () => {
+  const handleRecenter = useCallback(() => {
+    setDragOffset({ x: 0, y: 0 });
     recenterMap();
-  };
+  }, [recenterMap]);
+
+  // Handle wheel zoom with constraints
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newZoom = Math.max(0.5, Math.min(2.5, zoomLevel + delta));
+    setZoomLevel(newZoom);
+  }, [zoomLevel, setZoomLevel]);
 
   const focusedWorker = workers.find(w => w.id === focusedWorkerId);
 
   // Calculate camera offset to center on focused worker with clamping to prevent black screen
   const getCameraOffset = () => {
-    if (!focusedWorker) return { x: 0, y: 0 };
+    if (!focusedWorker) return { x: dragOffset.x, y: dragOffset.y };
     // Center the worker in viewport by calculating offset from center (50,50)
     // Clamp the offset to prevent the grid from going off-screen
-    const rawOffsetX = (50 - focusedWorker.position.x) * 1.5;
-    const rawOffsetY = (50 - focusedWorker.position.y) * 1.5;
-    const maxOffset = 40; // Maximum offset percentage
+    const rawOffsetX = (50 - focusedWorker.position.x) * 1.5 + dragOffset.x;
+    const rawOffsetY = (50 - focusedWorker.position.y) * 1.5 + dragOffset.y;
+    const maxOffset = 60; // Maximum offset percentage
     const offsetX = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX));
     const offsetY = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetY));
     return { x: offsetX, y: offsetY };
@@ -96,7 +113,21 @@ const HexGrid = () => {
 
   return (
     <motion.div 
-      className="relative w-full aspect-square mx-auto overflow-visible"
+      ref={containerRef}
+      className={`relative w-full aspect-square mx-auto overflow-visible ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      drag
+      dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
+      dragElastic={0.1}
+      dragMomentum={false}
+      onDragStart={() => setIsDragging(true)}
+      onDragEnd={(_, info) => {
+        setIsDragging(false);
+        // Apply drag offset with constraints
+        const newX = Math.max(-60, Math.min(60, dragOffset.x + info.offset.x / 5));
+        const newY = Math.max(-60, Math.min(60, dragOffset.y + info.offset.y / 5));
+        setDragOffset({ x: newX, y: newY });
+      }}
+      onWheel={handleWheel}
       animate={{
         scale: zoomLevel,
         x: `${cameraOffset.x}%`,
@@ -279,7 +310,7 @@ const HexGrid = () => {
 
       {/* Center point - clickable to recenter */}
       <button 
-        onClick={handleCenterClick}
+        onClick={handleRecenter}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
       >
         <motion.div

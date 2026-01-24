@@ -127,14 +127,14 @@ const CommsPanel = () => {
     >
       <div className="flex items-center gap-2 mb-3">
         <Terminal className="w-4 h-4 text-cyan" />
-        <span className="hud-label">AI Detection Log</span>
+        <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">AI Detection Log</span>
         <div className="ml-auto flex items-center gap-1">
           <motion.div 
             className="w-1.5 h-1.5 bg-cyan rounded-full"
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
           />
-          <span className="text-[10px] font-mono text-muted-foreground">LIVE</span>
+          <span className="text-[10px] font-mono text-muted-foreground tracking-wider">LIVE</span>
         </div>
       </div>
 
