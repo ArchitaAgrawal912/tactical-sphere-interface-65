@@ -19,6 +19,7 @@ const HexGrid = () => {
     highlightedPPEType,
     recenterMap,
     sonarPulseActive,
+    activeProtocol,
   } = useSimulationStore();
 
   // Drag state for pan functionality
@@ -339,6 +340,8 @@ const HexGrid = () => {
         {showWorkers && workers.map((worker, index) => {
           const isFocused = focusedWorkerId === worker.id;
           const hasActiveIncident = activeIncident?.workerId === worker.id;
+          const hasActiveProtocol = activeProtocol?.workerId === worker.id;
+          const isInProtocol = hasActiveIncident || hasActiveProtocol;
           const isPPEFailing = isPPEHighlighted(worker);
 
           return (
@@ -428,9 +431,9 @@ const HexGrid = () => {
                 )}
               </AnimatePresence>
 
-              {/* Status ring for focused/incident workers */}
+              {/* Status ring for focused/incident/protocol workers - SYNCHRONIZED AMBER PULSE */}
               <AnimatePresence>
-                {(isFocused || hasActiveIncident) && (
+                {(isFocused || isInProtocol) && (
                   <motion.div
                     className="absolute -inset-4"
                     initial={{ scale: 0, opacity: 0 }}
@@ -440,19 +443,19 @@ const HexGrid = () => {
                     <motion.div
                       className={`w-full h-full rounded-full border-2 ${
                         worker.inRestrictedZone ? 'border-[#FF8C00]' :
-                        hasActiveIncident ? 'border-ember' : 'border-cyan'
+                        isInProtocol ? 'border-ember' : 'border-cyan'
                       }`}
                       animate={{ 
                         rotate: 360,
                         boxShadow: worker.inRestrictedZone
                           ? ["0 0 20px rgba(255,140,0,0.5)", "0 0 40px rgba(255,140,0,0.8)", "0 0 20px rgba(255,140,0,0.5)"]
-                          : hasActiveIncident 
+                          : isInProtocol 
                           ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
                           : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
                       }}
                       transition={{ 
                         rotate: { duration: 3, repeat: Infinity, ease: "linear" },
-                        boxShadow: { duration: 1, repeat: Infinity }
+                        boxShadow: { duration: 1.5, repeat: Infinity }
                       }}
                     />
                     {/* Corner markers */}
@@ -461,7 +464,7 @@ const HexGrid = () => {
                         key={angle}
                         className={`absolute w-2 h-2 ${
                           worker.inRestrictedZone ? 'bg-[#FF8C00]' :
-                          hasActiveIncident ? 'bg-ember' : 'bg-cyan'
+                          isInProtocol ? 'bg-ember' : 'bg-cyan'
                         }`}
                         style={{
                           top: "50%",
@@ -476,17 +479,17 @@ const HexGrid = () => {
                 )}
               </AnimatePresence>
 
-              {/* Worker node dot */}
+              {/* Worker node dot - SYNCED with protocol state */}
               <motion.div
                 className={`rounded-full ${isPPEFailing ? 'bg-[#FF8C00]' : getStatusColor(worker)} ${getStatusGlow(worker, isFocused)}`}
                 style={{
                   width: isFocused ? "20px" : "14px",
                   height: isFocused ? "20px" : "14px",
                 }}
-                animate={(hasActiveIncident || worker.inRestrictedZone || isPPEFailing) ? {
+                animate={(isInProtocol || worker.inRestrictedZone || isPPEFailing) ? {
                   scale: [1, 1.3, 1],
                 } : {}}
-                transition={{ duration: 0.5, repeat: (hasActiveIncident || worker.inRestrictedZone || isPPEFailing) ? Infinity : 0 }}
+                transition={{ duration: 1.5, repeat: (isInProtocol || worker.inRestrictedZone || isPPEFailing) ? Infinity : 0 }}
                 whileHover={{ scale: 1.5 }}
               />
 
@@ -499,7 +502,7 @@ const HexGrid = () => {
                 <span className={`text-[9px] font-mono ${
                   isPPEFailing ? 'text-[#FF8C00]' :
                   worker.inRestrictedZone ? 'text-[#FF8C00]' :
-                  hasActiveIncident ? 'text-ember' : 'text-cyan'
+                  isInProtocol ? 'text-ember' : 'text-cyan'
                 }`}>
                   {worker.id}
                 </span>

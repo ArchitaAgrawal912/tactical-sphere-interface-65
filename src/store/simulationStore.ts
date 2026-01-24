@@ -158,29 +158,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       incidents: [incident, ...state.incidents].slice(0, 50),
     }));
     
-    // AUTO-TRIGGER: Automatically activate protocol for critical/high incidents
-    const state = get();
-    if ((incident.severity === "critical" || incident.severity === "high") && !state.activeProtocol) {
-      // Auto-activate protocol with AI verification
-      const protocol = createActiveProtocol(incident);
-      set({ 
-        activeProtocol: protocol,
-        activeIncident: incident,
-        executedActions: [],
-        focusedWorkerId: incident.workerId,
-        trackedWorkerId: incident.workerId,
-        isWarping: true,
-        zoomLevel: 1.25,
-      });
-      
-      // End warp animation
-      setTimeout(() => set({ isWarping: false }), 800);
-      
-      // Log AI activation
+    // MANUAL-ONLY: Protocol now requires clicking "FIX ALERT" button
+    // Auto-trigger removed - only log the AI detection
+    if (incident.severity === "critical" || incident.severity === "high") {
       get().addLog({
         timestamp: formatTimestamp(),
         type: "detection",
-        message: `AI PROTOCOL ACTIVATED: ${getProtocolForIncident(incident).name} initiated for ${incident.workerId}. Neural network confidence: ${(95 + Math.random() * 4).toFixed(1)}%.`,
+        message: `AI DETECTED: ${incident.type.replace("_", " ").toUpperCase()} for ${incident.workerId}. Click [FIX ALERT] to initiate response protocol.`,
         workerId: incident.workerId,
         priority: 90,
       });
