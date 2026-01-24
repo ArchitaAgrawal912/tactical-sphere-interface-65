@@ -59,7 +59,7 @@ const VitalsPanel = () => {
     >
       <div className="flex items-center gap-2 mb-4">
         <Activity className="w-4 h-4 text-cyan" />
-        <span className="hud-label">System Vitals</span>
+        <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">System Vitals</span>
       </div>
 
       {/* Selected Worker Header */}

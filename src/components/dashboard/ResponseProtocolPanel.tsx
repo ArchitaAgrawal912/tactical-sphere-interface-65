@@ -10,7 +10,9 @@ import {
   Lock,
   AlertTriangle,
   CheckCheck,
-  X
+  X,
+  Bot,
+  Sparkles
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { 
@@ -109,8 +111,8 @@ const ResponseProtocolPanel = () => {
           >
             <ShieldAlert className={`w-4 h-4 ${getSeverityText()}`} />
           </motion.div>
-          <span className={`text-xs font-mono font-bold ${getSeverityText()}`}>
-            RESPONSE PROTOCOL
+          <span className={`text-xs font-mono font-bold tracking-widest uppercase ${getSeverityText()}`}>
+            Response Protocol
           </span>
         </div>
         <button
@@ -121,13 +123,32 @@ const ResponseProtocolPanel = () => {
         </button>
       </div>
 
+      {/* AI Verification Badge */}
+      <motion.div
+        className="flex items-center gap-2 px-2 py-1.5 mb-3 rounded bg-cyan/10 border border-cyan/30"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
+      >
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+        >
+          <Sparkles className="w-3 h-3 text-cyan" />
+        </motion.div>
+        <span className="text-[9px] font-mono text-cyan font-bold tracking-widest uppercase">
+          Verified by AI
+        </span>
+        <Bot className="w-3 h-3 text-cyan ml-auto" />
+      </motion.div>
+
       {/* Protocol Name */}
       <motion.div
         className={`px-2 py-1.5 rounded ${getSeverityBg()} border ${getSeverityBorder()} mb-3`}
         animate={{ opacity: [0.8, 1, 0.8] }}
         transition={{ duration: 1.5, repeat: Infinity }}
       >
-        <p className={`text-[10px] font-mono font-bold ${getSeverityText()}`}>
+        <p className={`text-[10px] font-mono font-bold tracking-wider uppercase ${getSeverityText()}`}>
           {protocol.name}
         </p>
         <p className="text-[9px] font-mono text-muted-foreground mt-0.5">

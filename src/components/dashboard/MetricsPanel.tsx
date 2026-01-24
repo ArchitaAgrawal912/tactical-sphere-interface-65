@@ -141,7 +141,7 @@ const MetricsPanel = () => {
     >
       <div className="flex items-center gap-2 mb-4">
         <ShieldCheck className="w-4 h-4 text-cyan" />
-        <span className="hud-label">PPE Compliance</span>
+        <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">PPE Compliance</span>
         {highlightedPPEType && (
           <motion.span 
             className="ml-auto text-[9px] font-mono text-ember uppercase"

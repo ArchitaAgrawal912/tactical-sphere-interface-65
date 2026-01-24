@@ -96,7 +96,7 @@ const LiveStreamPanel = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Camera className="w-4 h-4 text-cyan" />
-          <span className="hud-label">Live Feed</span>
+          <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">Live Feed</span>
         </div>
         <div className="flex items-center gap-2">
           <Circle className={`w-2 h-2 fill-danger text-danger animate-pulse`} />
