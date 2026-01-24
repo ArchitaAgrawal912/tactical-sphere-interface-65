@@ -1,19 +1,6 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, HardHat, Glasses } from "lucide-react";
-
-interface MetricRing {
-  label: string;
-  value: number;
-  max: number;
-  color: "cyan" | "ember" | "danger";
-  icon: React.ReactNode;
-}
-
-const metrics: MetricRing[] = [
-  { label: "Helmets", value: 94, max: 100, color: "cyan", icon: <HardHat className="w-3 h-3" /> },
-  { label: "Vests", value: 87, max: 100, color: "cyan", icon: <ShieldCheck className="w-3 h-3" /> },
-  { label: "Eyewear", value: 72, max: 100, color: "ember", icon: <Glasses className="w-3 h-3" /> },
-];
+import { ShieldCheck, HardHat, Glasses, AlertTriangle } from "lucide-react";
+import { useSimulationStore } from "@/store/simulationStore";
 
 const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max: number; color: string; size?: number }) => {
   const radius = (size - 8) / 2;
@@ -25,7 +12,6 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
 
   return (
     <svg width={size} height={size} className="transform -rotate-90">
-      {/* Background circle */}
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -35,7 +21,6 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
         strokeWidth="4"
         className="text-obsidian-light"
       />
-      {/* Progress circle */}
       <motion.circle
         cx={size / 2}
         cy={size / 2}
@@ -48,7 +33,7 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
         strokeDasharray={circumference}
         initial={{ strokeDashoffset: circumference }}
         animate={{ strokeDashoffset }}
-        transition={{ duration: 1.5, ease: "easeOut" }}
+        transition={{ duration: 1, ease: "easeOut" }}
         style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
       />
     </svg>
@@ -56,6 +41,44 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
 };
 
 const MetricsPanel = () => {
+  const { workers, incidents } = useSimulationStore();
+
+  // Calculate PPE metrics from workers
+  const avgPPE = Math.round(workers.reduce((acc, w) => acc + w.ppe, 0) / workers.length);
+  
+  // Simulate different PPE types
+  const helmetCompliance = Math.min(100, avgPPE + 5);
+  const vestCompliance = Math.max(60, avgPPE - 5);
+  const eyewearCompliance = Math.max(50, avgPPE - 15);
+
+  const metrics = [
+    { 
+      label: "Helmets", 
+      value: helmetCompliance, 
+      max: 100, 
+      color: helmetCompliance >= 90 ? "cyan" : helmetCompliance >= 70 ? "ember" : "danger",
+      icon: <HardHat className="w-3 h-3" /> 
+    },
+    { 
+      label: "Vests", 
+      value: vestCompliance, 
+      max: 100, 
+      color: vestCompliance >= 90 ? "cyan" : vestCompliance >= 70 ? "ember" : "danger",
+      icon: <ShieldCheck className="w-3 h-3" /> 
+    },
+    { 
+      label: "Eyewear", 
+      value: eyewearCompliance, 
+      max: 100, 
+      color: eyewearCompliance >= 90 ? "cyan" : eyewearCompliance >= 70 ? "ember" : "danger",
+      icon: <Glasses className="w-3 h-3" /> 
+    },
+  ];
+
+  const overallCompliance = Math.round((helmetCompliance + vestCompliance + eyewearCompliance) / 3);
+  const activeViolations = incidents.filter(i => !i.resolved && i.type === "ppe_violation").length;
+  const safeWorkers = workers.filter(w => w.status === "safe").length;
+
   return (
     <motion.div
       className="glass-panel clip-corner-br p-4 w-72"
@@ -97,15 +120,23 @@ const MetricsPanel = () => {
       {/* Overall compliance bar */}
       <div className="mt-4 pt-4 border-t border-cyan/10">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-mono text-muted-foreground">OVERALL COMPLIANCE</span>
-          <span className="text-cyan font-orbitron font-bold text-sm">84%</span>
+          <span className="text-xs font-mono text-muted-foreground">OVERALL</span>
+          <span className={`font-orbitron font-bold text-sm ${
+            overallCompliance >= 90 ? 'text-cyan' : overallCompliance >= 70 ? 'text-ember' : 'text-danger'
+          }`}>{overallCompliance}%</span>
         </div>
         <div className="h-2 bg-obsidian-light rounded-full overflow-hidden">
           <motion.div
-            className="h-full bg-gradient-to-r from-cyan to-cyan-glow"
+            className={`h-full ${
+              overallCompliance >= 90 
+                ? 'bg-gradient-to-r from-cyan to-cyan-glow' 
+                : overallCompliance >= 70 
+                ? 'bg-gradient-to-r from-ember to-ember-glow'
+                : 'bg-gradient-to-r from-danger to-danger-glow'
+            }`}
             initial={{ width: 0 }}
-            animate={{ width: "84%" }}
-            transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
+            animate={{ width: `${overallCompliance}%` }}
+            transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
           />
         </div>
       </div>
@@ -114,11 +145,14 @@ const MetricsPanel = () => {
       <div className="grid grid-cols-2 gap-2 mt-4">
         <div className="bg-obsidian/50 rounded p-2 border border-cyan/10">
           <p className="text-[10px] font-mono text-muted-foreground">WORKERS</p>
-          <p className="text-cyan font-orbitron font-bold">24/28</p>
+          <p className="text-cyan font-orbitron font-bold">{safeWorkers}/{workers.length}</p>
         </div>
         <div className="bg-obsidian/50 rounded p-2 border border-ember/10">
-          <p className="text-[10px] font-mono text-muted-foreground">VIOLATIONS</p>
-          <p className="text-ember font-orbitron font-bold">3</p>
+          <div className="flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 text-ember" />
+            <p className="text-[10px] font-mono text-muted-foreground">VIOLATIONS</p>
+          </div>
+          <p className="text-ember font-orbitron font-bold">{activeViolations}</p>
         </div>
       </div>
     </motion.div>
