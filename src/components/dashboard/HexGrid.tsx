@@ -9,23 +9,53 @@ const HexGrid = () => {
     setFocusedWorkerId,
     isWarping,
     zoomLevel,
-    activeIncident 
+    activeIncident,
+    setActiveIncident,
+    setIsWarping,
+    setZoomLevel,
+    setTrackedWorkerId,
   } = useSimulationStore();
 
-  const getStatusColor = (status: WorkerTelemetry["status"]) => {
-    switch (status) {
+  const getStatusColor = (worker: WorkerTelemetry) => {
+    // Safety Orange (#FF8C00) for workers in restricted zones
+    if (worker.inRestrictedZone) return "bg-[#FF8C00]";
+    switch (worker.status) {
       case "safe": return "bg-cyan";
       case "warning": return "bg-ember";
       case "danger": return "bg-danger";
     }
   };
 
-  const getStatusGlow = (status: WorkerTelemetry["status"], isFocused: boolean) => {
+  const getStatusGlow = (worker: WorkerTelemetry, isFocused: boolean) => {
     const intensity = isFocused ? "30px" : "20px";
-    switch (status) {
+    if (worker.inRestrictedZone) {
+      return `shadow-[0_0_${intensity}_rgba(255,140,0,0.9)]`;
+    }
+    // Amber ring for elevated HR
+    if (worker.hrElevated) {
+      return `shadow-[0_0_${intensity}_rgba(255,191,0,0.9)]`;
+    }
+    switch (worker.status) {
       case "safe": return `shadow-[0_0_${intensity}_rgba(0,242,255,0.9)]`;
       case "warning": return `shadow-[0_0_${intensity}_rgba(255,191,0,0.9)]`;
       case "danger": return `shadow-[0_0_${intensity}_rgba(255,0,0,0.9)]`;
+    }
+  };
+
+  const handleWorkerClick = (worker: WorkerTelemetry) => {
+    const isFocused = focusedWorkerId === worker.id;
+    if (isFocused) {
+      setFocusedWorkerId(null);
+      setActiveIncident(null);
+      setTrackedWorkerId(null);
+      setZoomLevel(1);
+    } else {
+      setIsWarping(true);
+      setZoomLevel(1.8);
+      setFocusedWorkerId(worker.id);
+      setTrackedWorkerId(worker.id);
+      setTimeout(() => setIsWarping(false), 800);
+      setTimeout(() => setZoomLevel(1), 5000);
     }
   };
 
@@ -199,7 +229,7 @@ const HexGrid = () => {
         <div className="absolute inset-0 w-6 h-6 bg-cyan/30 rounded-full animate-ping" />
       </div>
 
-      {/* Worker nodes */}
+      {/* Worker nodes with smooth gliding transitions */}
       {workers.map((worker, index) => {
         const isFocused = focusedWorkerId === worker.id;
         const hasActiveIncident = activeIncident?.workerId === worker.id;
@@ -208,25 +238,43 @@ const HexGrid = () => {
           <motion.div
             key={worker.id}
             className="absolute cursor-pointer"
-            style={{
+            initial={{ 
               left: `${worker.position.x}%`,
               top: `${worker.position.y}%`,
+              scale: 0, 
+              opacity: 0 
             }}
-            initial={{ scale: 0, opacity: 0 }}
             animate={{ 
+              left: `${worker.position.x}%`,
+              top: `${worker.position.y}%`,
               scale: 1,
               opacity: 1,
               x: "-50%",
               y: "-50%"
             }}
             transition={{ 
-              type: "spring", 
-              stiffness: 300, 
-              damping: 25,
-              delay: index * 0.1
+              left: { type: "spring", stiffness: 50, damping: 15 },
+              top: { type: "spring", stiffness: 50, damping: 15 },
+              scale: { delay: index * 0.1 },
+              opacity: { delay: index * 0.1 }
             }}
-            onClick={() => setFocusedWorkerId(isFocused ? null : worker.id)}
+            onClick={() => handleWorkerClick(worker)}
           >
+            {/* Elevated HR amber ring pulse */}
+            <AnimatePresence>
+              {worker.hrElevated && !isFocused && !hasActiveIncident && (
+                <motion.div
+                  className="absolute -inset-3"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.3, 0.8] }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <div className="w-full h-full rounded-full border-2 border-ember/60" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Status ring for focused/incident workers */}
             <AnimatePresence>
               {(isFocused || hasActiveIncident) && (
@@ -238,11 +286,14 @@ const HexGrid = () => {
                 >
                   <motion.div
                     className={`w-full h-full rounded-full border-2 ${
+                      worker.inRestrictedZone ? 'border-[#FF8C00]' :
                       hasActiveIncident ? 'border-ember' : 'border-cyan'
                     }`}
                     animate={{ 
                       rotate: 360,
-                      boxShadow: hasActiveIncident 
+                      boxShadow: worker.inRestrictedZone
+                        ? ["0 0 20px rgba(255,140,0,0.5)", "0 0 40px rgba(255,140,0,0.8)", "0 0 20px rgba(255,140,0,0.5)"]
+                        : hasActiveIncident 
                         ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
                         : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
                     }}
@@ -255,7 +306,10 @@ const HexGrid = () => {
                   {[0, 90, 180, 270].map((angle) => (
                     <motion.div
                       key={angle}
-                      className={`absolute w-2 h-2 ${hasActiveIncident ? 'bg-ember' : 'bg-cyan'}`}
+                      className={`absolute w-2 h-2 ${
+                        worker.inRestrictedZone ? 'bg-[#FF8C00]' :
+                        hasActiveIncident ? 'bg-ember' : 'bg-cyan'
+                      }`}
                       style={{
                         top: "50%",
                         left: "50%",
@@ -271,17 +325,15 @@ const HexGrid = () => {
 
             {/* Worker node dot */}
             <motion.div
-              className={`rounded-full ${
-                hasActiveIncident ? 'bg-ember' : getStatusColor(worker.status)
-              } ${getStatusGlow(worker.status, isFocused)}`}
+              className={`rounded-full ${getStatusColor(worker)} ${getStatusGlow(worker, isFocused)}`}
               style={{
                 width: isFocused ? "20px" : "14px",
                 height: isFocused ? "20px" : "14px",
               }}
-              animate={hasActiveIncident ? {
+              animate={hasActiveIncident || worker.inRestrictedZone ? {
                 scale: [1, 1.3, 1],
               } : {}}
-              transition={{ duration: 0.5, repeat: hasActiveIncident ? Infinity : 0 }}
+              transition={{ duration: 0.5, repeat: (hasActiveIncident || worker.inRestrictedZone) ? Infinity : 0 }}
               whileHover={{ scale: 1.5 }}
             />
 
@@ -292,6 +344,7 @@ const HexGrid = () => {
               animate={{ opacity: isFocused ? 1 : 0.7 }}
             >
               <span className={`text-[9px] font-mono ${
+                worker.inRestrictedZone ? 'text-[#FF8C00]' :
                 hasActiveIncident ? 'text-ember' : 'text-cyan'
               }`}>
                 {worker.id}
@@ -317,7 +370,7 @@ const HexGrid = () => {
           >
             <div className="flex items-center gap-2 mb-2">
               <motion.div 
-                className={`w-3 h-3 rounded-full ${getStatusColor(focusedWorker.status)}`}
+                className={`w-3 h-3 rounded-full ${getStatusColor(focusedWorker)}`}
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
               />
@@ -331,10 +384,23 @@ const HexGrid = () => {
             </div>
             <p className="text-cyan font-orbitron text-sm font-bold">{focusedWorker.name}</p>
             
+            {/* Zone breach warning */}
+            {focusedWorker.inRestrictedZone && (
+              <motion.div 
+                className="mt-2 px-2 py-1 bg-[#FF8C00]/20 border border-[#FF8C00]/50 rounded text-[10px] text-[#FF8C00] font-mono"
+                animate={{ opacity: [1, 0.5, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+              >
+                ⚠ RESTRICTED ZONE BREACH
+              </motion.div>
+            )}
+            
             <div className="mt-3 space-y-2 text-xs font-mono">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Zone:</span>
-                <span className="text-cyan">{focusedWorker.zone}</span>
+                <span className={focusedWorker.inRestrictedZone ? 'text-[#FF8C00]' : 'text-cyan'}>
+                  {focusedWorker.zone}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">PPE:</span>
@@ -353,9 +419,13 @@ const HexGrid = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Heart Rate:</span>
-                <span className={focusedWorker.heartRate > 100 ? 'text-ember' : 'text-cyan'}>
-                  {focusedWorker.heartRate} BPM
-                </span>
+                <motion.span 
+                  className={focusedWorker.hrElevated ? 'text-ember' : 'text-cyan'}
+                  animate={focusedWorker.hrElevated ? { opacity: [1, 0.5, 1] } : {}}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                >
+                  {focusedWorker.heartRate} BPM {focusedWorker.hrElevated && '↑'}
+                </motion.span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">O2 Level:</span>

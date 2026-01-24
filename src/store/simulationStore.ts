@@ -4,10 +4,13 @@ import {
   Incident,
   LogEntry,
   initializeWorkers,
-  calculateNewPosition,
+  calculateNextHexCell,
   generateRandomIncident,
+  generateZoneBreachIncident,
+  generateNarrativeMessage,
   formatTimestamp,
   isInRestrictedZone,
+  simulateBiometricDrift,
 } from "@/utils/simEngine";
 
 interface SimulationState {
@@ -15,6 +18,7 @@ interface SimulationState {
   workers: WorkerTelemetry[];
   setWorkers: (workers: WorkerTelemetry[]) => void;
   updateWorker: (id: string, updates: Partial<WorkerTelemetry>) => void;
+  moveWorkersToNextHex: () => void;
 
   // Incidents
   incidents: Incident[];
@@ -27,6 +31,7 @@ interface SimulationState {
   logs: LogEntry[];
   addLog: (log: Omit<LogEntry, "id">) => void;
   clearLogs: () => void;
+  streamNarrativeLog: () => void;
 
   // Focus state
   focusedWorkerId: string | null;
@@ -36,14 +41,23 @@ interface SimulationState {
   isWarping: boolean;
   setIsWarping: (warping: boolean) => void;
 
+  // Camera tracking (for live feed)
+  trackedWorkerId: string | null;
+  setTrackedWorkerId: (id: string | null) => void;
+
   // Glitch effect
   isGlitching: boolean;
   triggerGlitch: () => void;
+
+  // Zone breach flash
+  violationFlash: boolean;
+  triggerViolationFlash: () => void;
 
   // Simulation controls
   isRunning: boolean;
   setIsRunning: (running: boolean) => void;
   simulationTick: () => void;
+  biometricTick: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -56,6 +70,47 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         w.id === id ? { ...w, ...updates, lastUpdate: Date.now() } : w
       ),
     })),
+
+  // Move all workers to their next hex cell (called every 4 seconds)
+  moveWorkersToNextHex: () => {
+    const state = get();
+    if (!state.isRunning) return;
+
+    const updatedWorkers = state.workers.map((worker) => {
+      const newTarget = calculateNextHexCell(worker.position);
+      const restrictedCheck = isInRestrictedZone(newTarget.x, newTarget.y);
+      const wasInRestricted = worker.inRestrictedZone;
+
+      // If entering restricted zone for the first time, trigger incident
+      if (restrictedCheck.inZone && !wasInRestricted) {
+        const incident = generateZoneBreachIncident(worker, restrictedCheck.zoneName!);
+        
+        // Queue incident creation (can't call addIncident directly in map)
+        setTimeout(() => {
+          get().addIncident(incident);
+          get().addLog({
+            timestamp: formatTimestamp(),
+            type: "alert",
+            message: incident.aiAnalysis,
+            workerId: worker.id,
+            priority: 80,
+            incident,
+          });
+          get().triggerViolationFlash();
+        }, 0);
+      }
+
+      return {
+        ...worker,
+        targetPosition: newTarget,
+        inRestrictedZone: restrictedCheck.inZone,
+        status: restrictedCheck.inZone ? "warning" as const : worker.status,
+        lastUpdate: Date.now(),
+      };
+    });
+
+    set({ workers: updatedWorkers });
+  },
 
   // Incidents
   incidents: [],
@@ -85,13 +140,33 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     })),
   clearLogs: () => set({ logs: [] }),
 
+  // Stream narrative log (called every 15 seconds)
+  streamNarrativeLog: () => {
+    const state = get();
+    if (!state.isRunning) return;
+
+    const message = generateNarrativeMessage(state.workers);
+    const isDetection = message.startsWith("DET:");
+
+    state.addLog({
+      timestamp: formatTimestamp(),
+      type: isDetection ? "detection" : "info",
+      message,
+      priority: 10,
+    });
+  },
+
   // Focus state
   focusedWorkerId: null,
-  setFocusedWorkerId: (id) => set({ focusedWorkerId: id }),
+  setFocusedWorkerId: (id) => set({ focusedWorkerId: id, trackedWorkerId: id }),
   zoomLevel: 1,
   setZoomLevel: (level) => set({ zoomLevel: level }),
   isWarping: false,
   setIsWarping: (warping) => set({ isWarping: warping }),
+
+  // Camera tracking
+  trackedWorkerId: null,
+  setTrackedWorkerId: (id) => set({ trackedWorkerId: id }),
 
   // Glitch effect
   isGlitching: false,
@@ -100,60 +175,76 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     setTimeout(() => set({ isGlitching: false }), 500);
   },
 
+  // Violation flash
+  violationFlash: false,
+  triggerViolationFlash: () => {
+    set({ violationFlash: true });
+    setTimeout(() => set({ violationFlash: false }), 800);
+  },
+
   // Simulation controls
   isRunning: true,
   setIsRunning: (running) => set({ isRunning: running }),
 
-  simulationTick: () => {
+  // Biometric tick (updates HR/O2 with drift, checks thresholds)
+  biometricTick: () => {
     const state = get();
     if (!state.isRunning) return;
 
     const updatedWorkers = state.workers.map((worker) => {
-      const { position, velocity } = calculateNewPosition(
-        worker.position,
-        worker.velocity
+      // Interpolate position towards target for smooth movement
+      const lerpFactor = 0.15;
+      const newPosition = {
+        x: worker.position.x + (worker.targetPosition.x - worker.position.x) * lerpFactor,
+        y: worker.position.y + (worker.targetPosition.y - worker.position.y) * lerpFactor,
+      };
+
+      // Biometric drift
+      const { heartRate, oxygenLevel } = simulateBiometricDrift(
+        worker.heartRate,
+        worker.oxygenLevel,
+        worker.inRestrictedZone
       );
 
-      // Check if in restricted zone
-      const inRestricted = isInRestrictedZone(position.x, position.y);
-
-      // Random vital fluctuations
-      const heartRate = Math.max(
-        60,
-        Math.min(120, worker.heartRate + (Math.random() - 0.5) * 5)
-      );
-      const oxygenLevel = Math.max(
-        90,
-        Math.min(100, worker.oxygenLevel + (Math.random() - 0.5) * 2)
-      );
+      // Check HR threshold (> 100 BPM = elevated)
+      const hrElevated = heartRate > 100;
 
       // Determine status
       let status: WorkerTelemetry["status"] = "safe";
-      if (inRestricted || heartRate > 110 || oxygenLevel < 93) {
+      if (worker.inRestrictedZone) {
         status = "warning";
+      } else if (heartRate > 110 || oxygenLevel < 93) {
+        status = "warning";
+      }
+      if (heartRate > 125 || oxygenLevel < 90) {
+        status = "danger";
       }
 
       return {
         ...worker,
-        position,
-        velocity,
+        position: newPosition,
+        heartRate,
+        oxygenLevel,
+        hrElevated,
         status,
-        heartRate: Math.round(heartRate),
-        oxygenLevel: Math.round(oxygenLevel * 10) / 10,
         lastUpdate: Date.now(),
       };
     });
 
     set({ workers: updatedWorkers });
+  },
 
-    // 10% chance of incident per cycle
+  simulationTick: () => {
+    const state = get();
+    if (!state.isRunning) return;
+
+    // 10% chance of random incident per cycle
     if (Math.random() < 0.1) {
       const randomWorker =
-        updatedWorkers[Math.floor(Math.random() * updatedWorkers.length)];
+        state.workers[Math.floor(Math.random() * state.workers.length)];
       const incident = generateRandomIncident(randomWorker);
 
       if (incident) {
-        // Update worker status based on incident
         const newStatus =
           incident.severity === "critical"
             ? "danger"
@@ -164,14 +255,17 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         set((s) => ({
           workers: s.workers.map((w) =>
             w.id === randomWorker.id
-              ? { ...w, status: newStatus, ppe: incident.type === "ppe_violation" ? Math.max(40, w.ppe - 30) : w.ppe }
+              ? { 
+                  ...w, 
+                  status: newStatus, 
+                  ppe: incident.type === "ppe_violation" ? Math.max(40, w.ppe - 30) : w.ppe 
+                }
               : w
           ),
         }));
 
         state.addIncident(incident);
 
-        // Add log entry
         state.addLog({
           timestamp: formatTimestamp(),
           type:
@@ -195,27 +289,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         if (incident.severity === "critical") {
           state.triggerGlitch();
         }
+
+        // Flash violations counter for any incident
+        state.triggerViolationFlash();
       }
-    }
-
-    // Add random informational logs
-    if (Math.random() < 0.3) {
-      const randomWorker =
-        updatedWorkers[Math.floor(Math.random() * updatedWorkers.length)];
-      const infoMessages = [
-        `Worker ${randomWorker.id} biometrics nominal. HR: ${randomWorker.heartRate}bpm, O2: ${randomWorker.oxygenLevel}%`,
-        `Zone ${randomWorker.zone} scan complete. ${updatedWorkers.filter((w) => w.zone === randomWorker.zone).length} workers detected.`,
-        `PPE compliance check passed for ${randomWorker.id}. All equipment verified.`,
-        `Perimeter sensors active. No unauthorized access detected.`,
-        `AI model calibration complete. Detection accuracy: ${(97 + Math.random() * 2).toFixed(1)}%`,
-      ];
-
-      state.addLog({
-        timestamp: formatTimestamp(),
-        type: Math.random() > 0.5 ? "detection" : "info",
-        message: infoMessages[Math.floor(Math.random() * infoMessages.length)],
-        priority: 10,
-      });
     }
   },
 }));
