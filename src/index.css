@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scrollbar styling */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); border-radius: 2px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(0, 242, 255, 0.4); }
+
+/* HUD button hover glow */
+.hud-button { position: relative; }
+.hud-button:hover { box-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
+.hud-button:active { transform: scale(0.95); }
+
 @layer base {
   :root {
     /* Obsidian & Ember Palette */

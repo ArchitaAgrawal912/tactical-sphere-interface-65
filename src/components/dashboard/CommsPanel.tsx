@@ -1,9 +1,31 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, AlertTriangle, ChevronRight } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
+import { useState, useEffect, useRef } from "react";
 
 const CommsPanel = () => {
-  const { logs, setFocusedWorkerId, setActiveIncident, setIsWarping, setZoomLevel } = useSimulationStore();
+  const { 
+    logs, 
+    setFocusedWorkerId, 
+    setActiveIncident, 
+    setIsWarping, 
+    setZoomLevel,
+    clearLogs,
+    triggerManualIncident,
+    alertScrollTrigger,
+    workers,
+  } = useSimulationStore();
+
+  const [command, setCommand] = useState("");
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when alertScrollTrigger changes
+  useEffect(() => {
+    if (alertScrollTrigger > 0 && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [alertScrollTrigger]);
 
   const handleLogClick = (log: typeof logs[0]) => {
     if (log.incident) {
@@ -14,6 +36,29 @@ const CommsPanel = () => {
       
       setTimeout(() => setIsWarping(false), 800);
       setTimeout(() => setZoomLevel(1), 5000);
+    }
+  };
+
+  const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && command.trim()) {
+      const cmd = command.trim().toUpperCase();
+      setCommandHistory(prev => [...prev, cmd]);
+      
+      if (cmd === "RESET") {
+        clearLogs();
+      } else if (cmd.startsWith("FALL ")) {
+        const workerId = cmd.replace("FALL ", "").trim();
+        // Format worker ID properly
+        const formattedId = workerId.startsWith("W-") ? workerId : `W-${workerId.padStart(3, "0")}`;
+        const worker = workers.find(w => w.id === formattedId);
+        if (worker) {
+          triggerManualIncident(formattedId, "fall");
+        }
+      } else if (cmd === "HELP") {
+        // Could add help message to logs
+      }
+      
+      setCommand("");
     }
   };
 
@@ -66,7 +111,10 @@ const CommsPanel = () => {
       </div>
 
       {/* Terminal output */}
-      <div className="h-52 overflow-hidden bg-obsidian rounded border border-cyan/10 p-2">
+      <div 
+        ref={scrollRef}
+        className="h-52 overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 p-2 scrollbar-thin scrollbar-thumb-cyan/20 scrollbar-track-transparent"
+      >
         <div className="space-y-1.5">
           <AnimatePresence mode="popLayout">
             {logs.map((log, index) => (
@@ -114,13 +162,16 @@ const CommsPanel = () => {
         </div>
       </div>
 
-      {/* Command input */}
-      <div className="mt-3 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1">
+      {/* Command input - functional */}
+      <div className="mt-3 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1 focus-within:border-cyan/50 transition-colors">
         <span className="text-cyan text-xs font-mono">&gt;</span>
         <input
           type="text"
-          placeholder="Enter command..."
-          className="flex-1 bg-transparent text-xs font-mono text-cyan placeholder:text-muted-foreground focus:outline-none"
+          value={command}
+          onChange={(e) => setCommand(e.target.value)}
+          onKeyDown={handleCommand}
+          placeholder="RESET | FALL 001"
+          className="flex-1 bg-transparent text-xs font-mono text-cyan placeholder:text-muted-foreground/50 focus:outline-none"
         />
       </div>
 
