@@ -1,15 +1,24 @@
-import { motion } from "framer-motion";
-import { Camera, Circle, Maximize2, User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Camera, Circle, Maximize2, User, Target, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
 
 const LiveStreamPanel = () => {
   const [scanlinePos, setScanlinePos] = useState(0);
-  const { workers, trackedWorkerId, setTrackedWorkerId, focusedWorkerId } = useSimulationStore();
+  const { 
+    workers, 
+    trackedWorkerId, 
+    setTrackedWorkerId, 
+    focusedWorkerId,
+    setFocusedWorkerId,
+    setIsWarping,
+    setZoomLevel,
+  } = useSimulationStore();
   
   // Get tracked worker or default to first worker
   const trackedWorker = workers.find(w => w.id === trackedWorkerId) || workers[0];
   const [currentCam, setCurrentCam] = useState(0);
+  const isTracking = !!trackedWorkerId;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,7 +39,15 @@ const LiveStreamPanel = () => {
 
   const handleCamSelect = (index: number) => {
     setCurrentCam(index);
-    setTrackedWorkerId(workers[index]?.id || null);
+    const worker = workers[index];
+    if (worker) {
+      setTrackedWorkerId(worker.id);
+      setFocusedWorkerId(worker.id);
+      setIsWarping(true);
+      setZoomLevel(1.5);
+      setTimeout(() => setIsWarping(false), 800);
+      setTimeout(() => setZoomLevel(1), 5000);
+    }
   };
 
   const displayWorker = workers[currentCam] || workers[0];
@@ -85,10 +102,25 @@ const LiveStreamPanel = () => {
             <div className={`absolute left-1/2 bottom-0 w-px h-3 translate-y-full ${isInRestrictedZone ? 'bg-[#FF8C00]/50' : 'bg-cyan/50'}`} />
           </div>
 
+          {/* TARGET LOCKED overlay */}
+          <AnimatePresence>
+            {isTracking && (
+              <motion.div
+                className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-cyan/20 border border-cyan/50 rounded"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <Lock className="w-3 h-3 text-cyan" />
+                <span className="text-[8px] font-mono text-cyan font-bold">TARGET LOCKED</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Tracked worker detection box */}
           {displayWorker && (
             <motion.div
-              className={`absolute border ${
+              className={`absolute border-2 ${
                 isInRestrictedZone ? 'border-[#FF8C00]' : 
                 displayWorker.status === "danger" ? 'border-danger' :
                 displayWorker.status === "warning" ? 'border-ember' : 'border-cyan'
@@ -103,22 +135,39 @@ const LiveStreamPanel = () => {
                 opacity: [1, 0.5, 1],
                 boxShadow: isInRestrictedZone 
                   ? ["0 0 10px rgba(255,140,0,0.5)", "0 0 20px rgba(255,140,0,0.8)", "0 0 10px rgba(255,140,0,0.5)"]
-                  : undefined
+                  : isTracking
+                    ? ["0 0 10px rgba(0,242,255,0.5)", "0 0 20px rgba(0,242,255,0.8)", "0 0 10px rgba(0,242,255,0.5)"]
+                    : undefined
               }}
               transition={{ duration: 1, repeat: Infinity }}
             >
-              <span className={`absolute -top-4 left-0 text-[8px] font-mono ${
+              {/* Target corners */}
+              <div className={`absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 ${
+                isInRestrictedZone ? 'border-[#FF8C00]' : 'border-cyan'
+              }`} />
+              <div className={`absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 ${
+                isInRestrictedZone ? 'border-[#FF8C00]' : 'border-cyan'
+              }`} />
+              <div className={`absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 ${
+                isInRestrictedZone ? 'border-[#FF8C00]' : 'border-cyan'
+              }`} />
+              <div className={`absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 ${
+                isInRestrictedZone ? 'border-[#FF8C00]' : 'border-cyan'
+              }`} />
+
+              <span className={`absolute -top-5 left-0 text-[8px] font-mono font-bold ${
                 isInRestrictedZone ? 'text-[#FF8C00]' :
                 displayWorker.status === "danger" ? 'text-danger' :
                 displayWorker.status === "warning" ? 'text-ember' : 'text-cyan'
               }`}>
+                <Target className="w-3 h-3 inline mr-1" />
                 {displayWorker.id}
               </span>
               
               {/* Biometric overlay */}
-              <div className="absolute -bottom-6 left-0 text-[7px] font-mono space-y-0.5">
+              <div className="absolute -bottom-8 left-0 text-[7px] font-mono space-y-0.5">
                 <p className={displayWorker.hrElevated ? 'text-ember' : 'text-cyan/70'}>
-                  HR: {displayWorker.heartRate}
+                  HR: {displayWorker.heartRate} BPM
                 </p>
                 <p className="text-cyan/70">O2: {displayWorker.oxygenLevel}%</p>
               </div>
@@ -173,16 +222,16 @@ const LiveStreamPanel = () => {
           <button
             key={worker.id}
             onClick={() => handleCamSelect(i)}
-            className={`px-2 py-1 text-[9px] font-mono border transition-colors flex items-center gap-1 ${
+            className={`hud-button px-2 py-1 text-[9px] font-mono border transition-all flex items-center gap-1 active:scale-95 ${
               i === currentCam 
                 ? worker.inRestrictedZone 
-                  ? "border-[#FF8C00] text-[#FF8C00] bg-[#FF8C00]/10"
-                  : "border-cyan text-cyan bg-cyan/10"
+                  ? "border-[#FF8C00] text-[#FF8C00] bg-[#FF8C00]/10 shadow-[0_0_10px_rgba(255,140,0,0.3)]"
+                  : "border-cyan text-cyan bg-cyan/10 shadow-[0_0_10px_rgba(0,242,255,0.3)]"
                 : worker.status === "danger" 
-                  ? "border-danger/50 text-danger hover:border-danger"
+                  ? "border-danger/50 text-danger hover:border-danger hover:shadow-[0_0_10px_rgba(255,0,0,0.3)]"
                   : worker.status === "warning"
-                    ? "border-ember/50 text-ember hover:border-ember"
-                    : "border-muted text-muted-foreground hover:border-cyan/50"
+                    ? "border-ember/50 text-ember hover:border-ember hover:shadow-[0_0_10px_rgba(255,191,0,0.3)]"
+                    : "border-muted text-muted-foreground hover:border-cyan/50 hover:shadow-[0_0_10px_rgba(0,242,255,0.2)]"
             }`}
           >
             <User className="w-2.5 h-2.5" />

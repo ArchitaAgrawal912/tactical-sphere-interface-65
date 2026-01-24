@@ -74,6 +74,10 @@ interface SimulationState {
   // Scroll to latest alert
   scrollToLatestAlert: () => void;
   alertScrollTrigger: number;
+
+  // Sonar pulse trigger
+  sonarPulseActive: boolean;
+  triggerSonarPulse: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -265,6 +269,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   // Scroll to latest alert
   alertScrollTrigger: 0,
   scrollToLatestAlert: () => set((state) => ({ alertScrollTrigger: state.alertScrollTrigger + 1 })),
+
+  // Sonar pulse
+  sonarPulseActive: false,
+  triggerSonarPulse: () => {
+    set({ sonarPulseActive: true });
+    setTimeout(() => set({ sonarPulseActive: false }), 2000);
+  },
 
   // Biometric tick (updates HR/O2 with drift, checks thresholds)
   biometricTick: () => {

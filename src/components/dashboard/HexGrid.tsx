@@ -18,6 +18,7 @@ const HexGrid = () => {
     showWorkers,
     highlightedPPEType,
     recenterMap,
+    sonarPulseActive,
   } = useSimulationStore();
 
   const getStatusColor = (worker: WorkerTelemetry) => {
@@ -209,6 +210,38 @@ const HexGrid = () => {
         animate={{ scale: [0.1, 1], opacity: [0.4, 0] }}
         transition={{ duration: 4, delay: 2, repeat: Infinity, ease: "easeOut" }}
       />
+
+      {/* Manual SCAN pulse - triggered by command */}
+      <AnimatePresence>
+        {sonarPulseActive && (
+          <>
+            <motion.div
+              className="absolute inset-0 rounded-full border-4 border-cyan"
+              initial={{ scale: 0.1, opacity: 1 }}
+              animate={{ scale: 1.5, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              style={{ boxShadow: "0 0 40px rgba(0,242,255,0.8)" }}
+            />
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-cyan"
+              initial={{ scale: 0.1, opacity: 1 }}
+              animate={{ scale: 1.3, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
+              style={{ boxShadow: "0 0 30px rgba(0,242,255,0.6)" }}
+            />
+            <motion.div
+              className="absolute inset-0 rounded-full border border-cyan"
+              initial={{ scale: 0.1, opacity: 1 }}
+              animate={{ scale: 1.1, opacity: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+              style={{ boxShadow: "0 0 20px rgba(0,242,255,0.4)" }}
+            />
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Grid lines */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
