@@ -6,6 +6,7 @@ import LiveStreamPanel from "@/components/dashboard/LiveStreamPanel";
 import CommsPanel from "@/components/dashboard/CommsPanel";
 import MetricsPanel from "@/components/dashboard/MetricsPanel";
 import ResponseProtocolPanel from "@/components/dashboard/ResponseProtocolPanel";
+import SystemsNominalPanel from "@/components/dashboard/SystemsNominalPanel";
 import Scanlines from "@/components/Scanlines";
 import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
@@ -196,19 +197,24 @@ const Dashboard = () => {
         </div>
       </motion.header>
 
-      {/* Main dashboard layout - Bento Grid */}
+      {/* Main dashboard layout - Bento Grid with Fixed Width Panels */}
       <main className="pt-14 min-h-screen relative">
-        {/* Desktop Bento Layout */}
-        <div className="hidden xl:grid xl:grid-cols-[280px_1fr_280px] xl:grid-rows-[auto_1fr_auto] gap-4 p-4 h-[calc(100vh-56px)]">
-          {/* Left column - Vitals */}
-          <div className="row-span-2 flex flex-col gap-4">
-            <VitalsPanel />
+        {/* Desktop Bento Layout - Fixed 320px side columns */}
+        <div className="hidden xl:grid xl:grid-cols-[320px_1fr_320px] gap-6 p-6 h-[calc(100vh-56px)]">
+          {/* Left column - Vitals (top) and Comms (bottom) */}
+          <div className="flex flex-col gap-4 h-full overflow-hidden">
+            <div className="shrink-0">
+              <VitalsPanel />
+            </div>
+            <div className="shrink-0 mt-auto">
+              <CommsPanel />
+            </div>
           </div>
 
-          {/* Center - Tactical Grid */}
-          <div className="row-span-3 flex items-center justify-center p-4 relative">
+          {/* Center - Tactical Grid (lower z-index, draggable) */}
+          <div className="flex items-center justify-center relative z-0">
             <motion.div
-              className="w-full max-w-[600px] aspect-square"
+              className="w-full max-w-[580px] aspect-square"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -217,30 +223,29 @@ const Dashboard = () => {
             </motion.div>
           </div>
 
-          {/* Right column - top */}
-          <div className="flex flex-col gap-4">
-            <LiveStreamPanel />
-          </div>
-
-          {/* Right column - bottom (Protocol or Metrics) */}
-          <div className="row-span-2">
-            <AnimatePresence mode="wait">
-              {activeProtocol ? (
-                <ResponseProtocolPanel key="protocol" />
-              ) : (
-                <MetricsPanel key="metrics" />
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Left column - bottom (Comms) */}
-          <div className="self-end">
-            <CommsPanel />
+          {/* Right column - Live Feed (top) and Protocol/Metrics (bottom) */}
+          <div className="flex flex-col gap-4 h-full overflow-hidden">
+            <div className="shrink-0">
+              <LiveStreamPanel />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <AnimatePresence mode="wait">
+                {activeProtocol ? (
+                  <ResponseProtocolPanel key="protocol" />
+                ) : (
+                  <SystemsNominalPanel key="nominal" />
+                )}
+              </AnimatePresence>
+            </div>
+            {/* PPE Metrics - always visible below protocol */}
+            <div className="shrink-0">
+              <MetricsPanel />
+            </div>
           </div>
         </div>
 
-        {/* Tablet/Large screen layout */}
-        <div className="hidden lg:grid xl:hidden lg:grid-cols-[260px_1fr_260px] gap-4 p-4 h-[calc(100vh-56px)]">
+        {/* Tablet/Large screen layout - Fixed 280px side columns */}
+        <div className="hidden lg:grid xl:hidden lg:grid-cols-[280px_1fr_280px] gap-4 p-4 h-[calc(100vh-56px)]">
           {/* Left column */}
           <div className="flex flex-col gap-4 overflow-y-auto">
             <VitalsPanel />
@@ -248,9 +253,9 @@ const Dashboard = () => {
           </div>
 
           {/* Center - Tactical Grid */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center relative z-0">
             <motion.div
-              className="w-full max-w-[500px] aspect-square"
+              className="w-full max-w-[480px] aspect-square"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -266,18 +271,19 @@ const Dashboard = () => {
               {activeProtocol ? (
                 <ResponseProtocolPanel key="protocol" />
               ) : (
-                <MetricsPanel key="metrics" />
+                <SystemsNominalPanel key="nominal" />
               )}
             </AnimatePresence>
+            <MetricsPanel />
           </div>
         </div>
 
         {/* Mobile/Small screen layout */}
-        <div className="lg:hidden flex flex-col gap-4 p-4">
+        <div className="lg:hidden flex flex-col gap-4 p-4 pb-8">
           {/* Tactical Grid centered */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center relative z-0">
             <motion.div
-              className="w-full max-w-[400px] aspect-square"
+              className="w-full max-w-[360px] aspect-square"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -295,9 +301,10 @@ const Dashboard = () => {
               {activeProtocol ? (
                 <ResponseProtocolPanel key="protocol" />
               ) : (
-                <MetricsPanel key="metrics" />
+                <SystemsNominalPanel key="nominal" />
               )}
             </AnimatePresence>
+            <MetricsPanel />
           </div>
         </div>
 

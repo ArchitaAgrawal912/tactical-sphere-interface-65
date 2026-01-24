@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, AlertTriangle, ChevronRight, Radio } from "lucide-react";
+import { Terminal, AlertTriangle, ChevronRight, Radio, Target } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useState, useEffect, useRef } from "react";
 
@@ -15,11 +15,16 @@ const CommsPanel = () => {
     alertScrollTrigger,
     workers,
     triggerSonarPulse,
+    setTrackedWorkerId,
+    activateProtocol,
+    activeProtocol,
+    focusedWorkerId,
   } = useSimulationStore();
 
   const [command, setCommand] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
+  const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const logsLengthRef = useRef(logs.length);
 
@@ -47,14 +52,29 @@ const CommsPanel = () => {
   }, [commandFeedback]);
 
   const handleLogClick = (log: typeof logs[0]) => {
-    if (log.incident) {
-      setActiveIncident(log.incident);
-      setFocusedWorkerId(log.workerId || null);
+    // Set active highlight
+    setActiveLogId(log.id);
+    
+    // Clear active highlight after 5 seconds
+    setTimeout(() => setActiveLogId(null), 5000);
+    
+    // Focus and warp to worker
+    if (log.workerId) {
+      setFocusedWorkerId(log.workerId);
+      setTrackedWorkerId(log.workerId);
       setIsWarping(true);
-      setZoomLevel(1.5);
+      setZoomLevel(1.25);
       
       setTimeout(() => setIsWarping(false), 800);
-      setTimeout(() => setZoomLevel(1), 5000);
+      setTimeout(() => setZoomLevel(1), 8000);
+    }
+    
+    // Activate protocol if incident exists and no active protocol
+    if (log.incident) {
+      setActiveIncident(log.incident);
+      if (!activeProtocol && (log.incident.severity === "critical" || log.incident.severity === "high")) {
+        activateProtocol(log.incident);
+      }
     }
   };
 
@@ -120,7 +140,7 @@ const CommsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-bl p-3 w-full max-w-[280px]"
+      className="glass-panel clip-corner-bl p-3 w-full"
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.4 }}
@@ -145,14 +165,24 @@ const CommsPanel = () => {
       >
         <div className="space-y-1.5">
           <AnimatePresence mode="popLayout">
-            {logs.map((log, index) => (
+            {logs.map((log, index) => {
+              const isActive = activeLogId === log.id;
+              const isLinkedToFocused = log.workerId === focusedWorkerId;
+              
+              return (
               <motion.div
                 key={log.id}
                 layout
-                className={`terminal-text text-[10px] leading-relaxed rounded px-2 py-1.5 border cursor-pointer transition-colors hover:bg-cyan/5 ${getTypeBg(log.type)}`}
+                className={`terminal-text text-[10px] leading-relaxed rounded px-2 py-1.5 border cursor-pointer transition-all ${getTypeBg(log.type)} ${
+                  isActive 
+                    ? 'ring-2 ring-cyan ring-offset-1 ring-offset-obsidian' 
+                    : isLinkedToFocused
+                      ? 'border-cyan/50 bg-cyan/5'
+                      : 'hover:bg-cyan/5'
+                }`}
                 initial={{ opacity: 0, x: -20, height: 0 }}
                 animate={{ 
-                  opacity: index === 0 ? 1 : Math.max(0.3, 1 - index * 0.1), 
+                  opacity: index === 0 ? 1 : Math.max(0.4, 1 - index * 0.08), 
                   x: 0,
                   height: "auto"
                 }}
@@ -172,7 +202,10 @@ const CommsPanel = () => {
                       {log.type === "critical" ? "CRITICAL ALERT" : "HIGH PRIORITY"}
                     </span>
                     {log.workerId && (
-                      <ChevronRight className="w-3 h-3 text-muted-foreground ml-auto" />
+                      <div className="flex items-center gap-0.5 ml-auto">
+                        <Target className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-[8px] text-muted-foreground">{log.workerId}</span>
+                      </div>
                     )}
                   </motion.div>
                 )}
@@ -185,7 +218,8 @@ const CommsPanel = () => {
                   {log.message.length > 150 ? log.message.slice(0, 150) + "..." : log.message}
                 </p>
               </motion.div>
-            ))}
+              );
+            })}
           </AnimatePresence>
         </div>
       </div>

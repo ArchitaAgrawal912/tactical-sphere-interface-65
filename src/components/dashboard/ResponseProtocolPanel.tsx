@@ -86,7 +86,7 @@ const ResponseProtocolPanel = () => {
 
   return (
     <motion.div
-      className={`glass-panel p-3 w-full max-w-[280px] ${getSeverityGlow()} ${getSeverityBorder()} border-2`}
+      className={`glass-panel p-3 w-full ${getSeverityGlow()} ${getSeverityBorder()} border-2`}
       initial={{ opacity: 0, x: 50, scale: 0.95 }}
       animate={{ 
         opacity: 1, 
