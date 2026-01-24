@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, AlertTriangle, Radio, Target, Eye, Wrench } from "lucide-react";
+import { Terminal, AlertTriangle, Radio, Target, Eye, ShieldAlert, Zap } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useState, useEffect, useRef } from "react";
 
@@ -254,29 +254,36 @@ const CommsPanel = () => {
                       {log.message.length > 120 ? log.message.slice(0, 120) + "..." : log.message}
                     </p>
 
-                    {/* Action button for alerts */}
+                    {/* Action button for alerts - INITIATE PROTOCOL trigger */}
                     {hasActionableIncident && (
                       <motion.button
                         onClick={(e) => handleActionClick(e, log)}
-                        className={`mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[9px] font-mono font-bold transition-all active:scale-95 ${
+                        className={`mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded text-[10px] font-mono font-bold uppercase tracking-wide transition-all active:scale-95 ${
                           isCurrentIncident
-                            ? 'bg-cyan/20 border border-cyan/50 text-cyan'
+                            ? 'bg-cyan/20 border-2 border-cyan text-cyan shadow-[0_0_15px_rgba(0,242,255,0.4)]'
                             : log.type === "critical"
-                              ? 'bg-danger/10 border border-danger/30 text-danger hover:bg-danger/20 hover:border-danger hover:shadow-[0_0_12px_rgba(255,0,0,0.4)]'
-                              : 'bg-ember/10 border border-ember/30 text-ember hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_12px_rgba(255,191,0,0.4)]'
+                              ? 'bg-danger/10 border-2 border-danger/50 text-danger hover:bg-danger/20 hover:border-danger hover:shadow-[0_0_15px_rgba(255,0,0,0.5)]'
+                              : 'bg-ember/10 border-2 border-ember/50 text-ember hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_15px_rgba(255,191,0,0.5)]'
                         }`}
+                        animate={isCurrentIncident ? {} : {
+                          boxShadow: log.type === "critical" 
+                            ? ["0 0 5px rgba(255,0,0,0.3)", "0 0 20px rgba(255,0,0,0.5)", "0 0 5px rgba(255,0,0,0.3)"]
+                            : ["0 0 5px rgba(255,191,0,0.3)", "0 0 20px rgba(255,191,0,0.5)", "0 0 5px rgba(255,191,0,0.3)"]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
                         whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileTap={{ scale: 0.95 }}
                       >
                         {isCurrentIncident ? (
                           <>
-                            <Eye className="w-3 h-3" />
-                            VIEW PROTOCOL
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Protocol Active</span>
                           </>
                         ) : (
                           <>
-                            <Wrench className="w-3 h-3" />
-                            FIX ALERT
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                            <span>Initiate Protocol</span>
+                            <Zap className="w-3 h-3 ml-0.5" />
                           </>
                         )}
                       </motion.button>

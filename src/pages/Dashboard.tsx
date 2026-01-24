@@ -219,16 +219,17 @@ const Dashboard = () => {
         </div>
       </motion.header>
 
-      {/* Main dashboard layout - Command-Wing Grid with Fixed 350px Panels */}
-      <main className="pt-14 min-h-screen relative">
+      {/* Main dashboard layout - True Bento Grid with viewport-constrained panels */}
+      <main className="pt-14 h-screen overflow-hidden relative">
         {/* Desktop Command-Wing Layout - Fixed 350px side columns */}
         <div className="hidden xl:grid xl:grid-cols-[350px_1fr_350px] gap-4 p-4 h-[calc(100vh-56px)]">
           {/* Left Wing (Panel A) - Vitals (top) and AI Detection Log (bottom) */}
-          <div className="flex flex-col gap-4 h-full min-w-0">
+          <div className="flex flex-col gap-4 h-full min-w-0 overflow-hidden">
             <div className="shrink-0">
               <VitalsPanel />
             </div>
-            <div className="flex-1 min-h-0">
+            {/* AI Detection Log - constrained height with scroll */}
+            <div className="flex-1 min-h-0 max-h-[calc(50vh-60px)] overflow-hidden">
               <CommsPanel />
             </div>
           </div>
@@ -246,23 +247,24 @@ const Dashboard = () => {
           </div>
 
           {/* Right Wing (Panel B) - Live Feed (top) and PPE/Protocol stack (bottom) */}
-          <div className="flex flex-col gap-4 h-full min-w-0">
+          <div className="flex flex-col gap-4 h-full min-w-0 overflow-hidden">
             <div className="shrink-0">
               <LiveStreamPanel />
             </div>
-            {/* Protocol/Nominal Panel - Auto-docks when critical alert arrives */}
-            <div className="shrink-0">
-              <AnimatePresence mode="wait">
-                {activeProtocol ? (
-                  <ResponseProtocolPanel key="protocol" />
-                ) : (
-                  <SystemsNominalPanel key="nominal" />
-                )}
-              </AnimatePresence>
-            </div>
-            {/* PPE Metrics - always visible */}
-            <div className="shrink-0">
-              <MetricsPanel />
+            {/* Protocol/Nominal + Metrics - scrollable container */}
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pb-4">
+              <div className="space-y-4">
+                {/* Protocol Panel - Manual trigger only */}
+                <AnimatePresence mode="wait">
+                  {activeProtocol ? (
+                    <ResponseProtocolPanel key="protocol" />
+                  ) : (
+                    <SystemsNominalPanel key="nominal" />
+                  )}
+                </AnimatePresence>
+                {/* PPE Metrics - always visible */}
+                <MetricsPanel />
+              </div>
             </div>
           </div>
         </div>
@@ -270,11 +272,11 @@ const Dashboard = () => {
         {/* Tablet/Large screen layout - Fixed 300px side columns */}
         <div className="hidden lg:grid xl:hidden lg:grid-cols-[300px_1fr_300px] gap-4 p-4 h-[calc(100vh-56px)]">
           {/* Left column */}
-          <div className="flex flex-col gap-4 h-full min-w-0">
+          <div className="flex flex-col gap-4 h-full min-w-0 overflow-hidden">
             <div className="shrink-0">
               <VitalsPanel />
             </div>
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 max-h-[calc(50vh-60px)] overflow-hidden">
               <CommsPanel />
             </div>
           </div>
@@ -292,21 +294,21 @@ const Dashboard = () => {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col gap-4 h-full min-w-0">
+          <div className="flex flex-col gap-4 h-full min-w-0 overflow-hidden">
             <div className="shrink-0">
               <LiveStreamPanel />
             </div>
-            <div className="shrink-0">
-              <AnimatePresence mode="wait">
-                {activeProtocol ? (
-                  <ResponseProtocolPanel key="protocol" />
-                ) : (
-                  <SystemsNominalPanel key="nominal" />
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="shrink-0">
-              <MetricsPanel />
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pb-4">
+              <div className="space-y-4">
+                <AnimatePresence mode="wait">
+                  {activeProtocol ? (
+                    <ResponseProtocolPanel key="protocol" />
+                  ) : (
+                    <SystemsNominalPanel key="nominal" />
+                  )}
+                </AnimatePresence>
+                <MetricsPanel />
+              </div>
             </div>
           </div>
         </div>
