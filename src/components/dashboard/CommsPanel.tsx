@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, AlertTriangle, Radio, Target, Eye, ShieldAlert, Zap } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useState, useEffect, useRef } from "react";
+import { broadcast } from "@/utils/broadcastChannel";
 
 const CommsPanel = () => {
   const { 
@@ -103,6 +104,8 @@ const CommsPanel = () => {
       
       if (cmd === "CLEAR" || cmd === "RESET") {
         clearLogs();
+        // Broadcast CLEAR_ALL to sync Site Centre
+        broadcast("CLEAR_ALL", { timestamp: Date.now() }, "dashboard");
         setCommandFeedback("✓ System reset complete");
       } else if (cmd.startsWith("EMERGENCY ") || cmd.startsWith("FALL ")) {
         const workerId = cmd.replace("EMERGENCY ", "").replace("FALL ", "").trim();

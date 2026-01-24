@@ -104,6 +104,12 @@ export const useBroadcastSync = () => {
           }
           break;
         }
+        
+        case "PING": {
+          // Respond to ping with pong for connection status
+          // Site Centre will receive this to confirm link is active
+          break;
+        }
       }
     };
 
