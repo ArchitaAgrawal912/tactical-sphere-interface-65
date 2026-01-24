@@ -21,8 +21,17 @@ const CommsPanel = () => {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const logsLengthRef = useRef(logs.length);
 
-  // Scroll to top when alertScrollTrigger changes
+  // Auto-scroll to top (newest entries) when new logs are added
+  useEffect(() => {
+    if (logs.length > logsLengthRef.current && scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    logsLengthRef.current = logs.length;
+  }, [logs.length]);
+
+  // Scroll to top when alertScrollTrigger changes (header alerts click)
   useEffect(() => {
     if (alertScrollTrigger > 0 && scrollRef.current) {
       scrollRef.current.scrollTo({ top: 0, behavior: "smooth" });

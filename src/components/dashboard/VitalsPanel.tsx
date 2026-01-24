@@ -2,6 +2,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Cpu, Thermometer, Wifi, Heart, Wind, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
+import HeartRateSparkline from "./HeartRateSparkline";
+import WorkerStatusBadge from "./WorkerStatusBadge";
 
 const VitalsPanel = () => {
   const { workers, isRunning, focusedWorkerId } = useSimulationStore();
@@ -35,6 +37,18 @@ const VitalsPanel = () => {
   const avgOxygen = focusedWorker
     ? focusedWorker.oxygenLevel.toFixed(1)
     : (workers.reduce((acc, w) => acc + w.oxygenLevel, 0) / workers.length).toFixed(1);
+
+  // Get HR sparkline color based on status
+  const getSparklineColor = () => {
+    if (!focusedWorker) return "rgb(0, 242, 255)"; // cyan
+    if (focusedWorker.status === "danger" || focusedWorker.heartRate > 125) {
+      return "rgb(255, 0, 0)"; // danger
+    }
+    if (focusedWorker.hrElevated || focusedWorker.status === "warning") {
+      return "rgb(255, 191, 0)"; // ember
+    }
+    return "rgb(0, 242, 255)"; // cyan
+  };
 
   return (
     <motion.div
@@ -75,6 +89,20 @@ const VitalsPanel = () => {
             exit={{ opacity: 0, y: -10 }}
           >
             <span className="text-xs font-mono text-muted-foreground">GLOBAL AVERAGES</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Worker Status Badge - shown when worker is selected */}
+      <AnimatePresence>
+        {isShowingWorker && focusedWorker && (
+          <motion.div
+            className="mb-3"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            <WorkerStatusBadge worker={focusedWorker} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -128,6 +156,33 @@ const VitalsPanel = () => {
             </span>
           </div>
         </div>
+
+        {/* HR Sparkline - shown when worker is selected */}
+        <AnimatePresence>
+          {isShowingWorker && focusedWorker && (
+            <motion.div
+              className="bg-obsidian/50 rounded p-2 border border-cyan/10"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-mono text-muted-foreground">HR HISTORY (60s)</span>
+                <span className={`text-[10px] font-mono ${
+                  focusedWorker.heartRate > 100 ? 'text-ember' : 'text-cyan'
+                }`}>
+                  {focusedWorker.heartRate} BPM
+                </span>
+              </div>
+              <HeartRateSparkline 
+                data={focusedWorker.hrHistory} 
+                strokeColor={getSparklineColor()}
+                width={240}
+                height={40}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Oxygen Level - shows selected worker or global avg */}
         <div className="flex items-center justify-between">

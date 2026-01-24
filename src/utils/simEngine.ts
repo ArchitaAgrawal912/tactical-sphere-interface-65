@@ -13,6 +13,7 @@ export interface WorkerTelemetry {
   oxygenLevel: number;
   inRestrictedZone: boolean;
   hrElevated: boolean; // For amber ring pulse
+  hrHistory: number[]; // Last 60 seconds of HR readings (sampled every 2s = 30 points)
 }
 
 export interface Incident {
@@ -253,6 +254,11 @@ export const initializeWorkers = (): WorkerTelemetry[] => {
       x: 30 + Math.random() * 40,
       y: 25 + Math.random() * 50,
     };
+    const initialHR = 70 + Math.floor(Math.random() * 20);
+    // Initialize HR history with baseline readings
+    const hrHistory = Array.from({ length: 30 }, () => 
+      initialHR + Math.floor((Math.random() - 0.5) * 10)
+    );
     return {
       id: `W-${String(index + 1).padStart(3, "0")}`,
       name,
@@ -266,10 +272,11 @@ export const initializeWorkers = (): WorkerTelemetry[] => {
       ppe: 85 + Math.floor(Math.random() * 15),
       zone: ZONES[Math.floor(Math.random() * ZONES.length)],
       lastUpdate: Date.now(),
-      heartRate: 70 + Math.floor(Math.random() * 20),
+      heartRate: initialHR,
       oxygenLevel: 95 + Math.floor(Math.random() * 5),
       inRestrictedZone: false,
       hrElevated: false,
+      hrHistory,
     };
   });
 };
