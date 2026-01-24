@@ -24,6 +24,7 @@ export const useBroadcastSync = () => {
     setCriticalWorkerIds,
     workers,
     setWorkers,
+    setActiveDangerZone,
   } = useSimulationStore();
 
   // Send heartbeat every 3 seconds to confirm connection
@@ -122,6 +123,7 @@ export const useBroadcastSync = () => {
             affectedWorkerIds, 
             workerUpdates, 
             logs,
+            dangerZone,
             effects 
           } = message.payload;
           
@@ -158,6 +160,11 @@ export const useBroadcastSync = () => {
           if (incident && affectedWorkerIds && affectedWorkerIds.length > 1) {
             // Set critical worker IDs for camera cycling
             setCriticalWorkerIds(affectedWorkerIds);
+            
+            // Set danger zone for visualization on map
+            if (dangerZone) {
+              setActiveDangerZone(dangerZone);
+            }
             
             // Zoom out to show entire affected sector
             setZoomLevel(0.6);
@@ -252,5 +259,6 @@ export const useBroadcastSync = () => {
     setCriticalWorkerIds,
     workers,
     setWorkers,
+    setActiveDangerZone,
   ]);
 };

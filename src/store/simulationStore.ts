@@ -23,6 +23,7 @@ interface SimulationState {
   workers: WorkerTelemetry[];
   setWorkers: (workers: WorkerTelemetry[]) => void;
   updateWorker: (id: string, updates: Partial<WorkerTelemetry>) => void;
+  updateMultipleWorkers: (updates: { id: string; updates: Partial<WorkerTelemetry> }[]) => void;
   moveWorkersToNextHex: () => void;
 
   // Incidents
@@ -111,6 +112,9 @@ interface SimulationState {
   currentCycleIndex: number;
   setCriticalWorkerIds: (ids: string[]) => void;
   cycleToNextCritical: () => void;
+  // Danger zone visualization
+  activeDangerZone: { x: number; y: number; radius: number } | null;
+  setActiveDangerZone: (zone: { x: number; y: number; radius: number } | null) => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -122,6 +126,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       workers: state.workers.map((w) =>
         w.id === id ? { ...w, ...updates, lastUpdate: Date.now() } : w
       ),
+    })),
+  updateMultipleWorkers: (updates) =>
+    set((state) => ({
+      workers: state.workers.map((w) => {
+        const update = updates.find(u => u.id === w.id);
+        return update ? { ...w, ...update.updates, lastUpdate: Date.now() } : w;
+      }),
     })),
 
   // Move all workers to their next hex cell (called every 4 seconds)
@@ -602,16 +613,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       incidents: s.incidents.map((i) =>
         i.id === resolvedIncident.id ? resolvedIncident : i
       ),
-      // Reset worker status to safe
+      // Reset all affected worker statuses to safe
       workers: s.workers.map((w) =>
-        w.id === resolvedIncident.workerId
+        s.affectedWorkerIds.includes(w.id) || w.id === resolvedIncident.workerId
           ? { ...w, status: "safe" as const }
           : w
       ),
-      // Clear active protocol
+      // Clear active protocol and emergency state
       activeProtocol: null,
       activeIncident: null,
       executedActions: [],
+      isSiteWideEmergency: false,
+      affectedWorkerIds: [],
+      criticalWorkerIds: [],
+      activeDangerZone: null,
     }));
 
     state.addLog({
@@ -631,6 +646,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       isSiteWideEmergency: false,
       affectedWorkerIds: [],
       criticalWorkerIds: [],
+      activeDangerZone: null, // Clear danger zone visualization
     });
   },
   
@@ -656,4 +672,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       trackedWorkerId: nextWorkerId,
     });
   },
+  
+  // Danger zone visualization
+  activeDangerZone: null,
+  setActiveDangerZone: (zone) => set({ activeDangerZone: zone }),
 }));

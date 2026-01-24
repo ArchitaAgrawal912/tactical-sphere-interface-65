@@ -1,12 +1,19 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Cpu, Thermometer, Wifi, Heart, Wind, User } from "lucide-react";
+import { Activity, Cpu, Thermometer, Wifi, Heart, Wind, User, AlertTriangle, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
 import HeartRateSparkline from "./HeartRateSparkline";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { calculateGroupBiometrics } from "@/utils/riskDetection";
 
 const VitalsPanel = () => {
-  const { workers, isRunning, focusedWorkerId } = useSimulationStore();
+  const { 
+    workers, 
+    isRunning, 
+    focusedWorkerId,
+    isSiteWideEmergency,
+    affectedWorkerIds,
+  } = useSimulationStore();
   const [uptime, setUptime] = useState(847 * 3600 + 23 * 60 + 45);
   const [temp, setTemp] = useState(42);
 
@@ -28,18 +35,29 @@ const VitalsPanel = () => {
   // Get focused worker or calculate global averages
   const focusedWorker = workers.find(w => w.id === focusedWorkerId);
   const isShowingWorker = !!focusedWorker;
+  const isShowingMassIncident = isSiteWideEmergency && affectedWorkerIds.length > 1 && !isShowingWorker;
+
+  // Calculate group biometrics for mass incident
+  const groupBiometrics = isShowingMassIncident 
+    ? calculateGroupBiometrics(workers, affectedWorkerIds)
+    : null;
 
   // Calculate average vitals from workers (for global view)
   const avgHeartRate = focusedWorker 
     ? focusedWorker.heartRate 
-    : Math.round(workers.reduce((acc, w) => acc + w.heartRate, 0) / workers.length);
+    : isShowingMassIncident && groupBiometrics
+      ? groupBiometrics.avgHeartRate
+      : Math.round(workers.reduce((acc, w) => acc + w.heartRate, 0) / workers.length);
   
   const avgOxygen = focusedWorker
     ? focusedWorker.oxygenLevel.toFixed(1)
-    : (workers.reduce((acc, w) => acc + w.oxygenLevel, 0) / workers.length).toFixed(1);
+    : isShowingMassIncident && groupBiometrics
+      ? groupBiometrics.avgOxygen.toFixed(1)
+      : (workers.reduce((acc, w) => acc + w.oxygenLevel, 0) / workers.length).toFixed(1);
 
   // Get HR sparkline color based on status
   const getSparklineColor = () => {
+    if (isShowingMassIncident) return "rgb(255, 0, 0)"; // danger
     if (!focusedWorker) return "rgb(0, 242, 255)"; // cyan
     if (focusedWorker.status === "danger" || focusedWorker.heartRate > 125) {
       return "rgb(255, 0, 0)"; // danger
@@ -77,9 +95,34 @@ const VitalsPanel = () => {
           </div>
         </div>
 
-        {/* Selected Worker Badge - sticky context */}
+        {/* Selected Worker / Mass Incident Badge - sticky context */}
         <AnimatePresence mode="wait">
-          {isShowingWorker ? (
+          {isShowingMassIncident ? (
+            <motion.div
+              key="mass-incident-header"
+              className="px-2 py-1.5 bg-danger/20 border border-danger/50 rounded"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+            >
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-danger" />
+                </motion.div>
+                <span className="text-[10px] font-mono text-danger font-bold">MASS INCIDENT</span>
+                <div className="flex items-center gap-1 ml-auto">
+                  <Users className="w-3 h-3 text-danger" />
+                  <span className="text-[10px] font-mono text-danger font-bold">{affectedWorkerIds.length}</span>
+                </div>
+              </div>
+              <p className="text-[8px] font-mono text-danger/80 mt-0.5">
+                AT RISK: {affectedWorkerIds.join(", ")}
+              </p>
+            </motion.div>
+          ) : isShowingWorker ? (
             <motion.div
               key="worker-header"
               className="px-2 py-1 bg-cyan/10 border border-cyan/30 rounded flex items-center gap-2"
@@ -179,22 +222,40 @@ const VitalsPanel = () => {
           </div>
 
           {/* Heart Rate with Sparkline - Full Width */}
-          <div className="bg-obsidian/50 rounded p-2 border border-cyan/10">
+          <div className={`bg-obsidian/50 rounded p-2 border ${isShowingMassIncident ? 'border-danger/30' : 'border-cyan/10'}`}>
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-1.5">
                 <motion.div
-                  className="w-2 h-2 bg-danger rounded-full"
+                  className={`w-2 h-2 rounded-full ${isShowingMassIncident ? 'bg-danger' : 'bg-danger'}`}
                   animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ duration: 0.8, repeat: Infinity }}
+                  transition={{ duration: isShowingMassIncident ? 0.5 : 0.8, repeat: Infinity }}
                 />
-                <span className="text-[9px] font-mono text-muted-foreground">
-                  {isShowingWorker ? 'HEART RATE' : 'AVG HR'}
+                <span className={`text-[9px] font-mono ${isShowingMassIncident ? 'text-danger' : 'text-muted-foreground'}`}>
+                  {isShowingMassIncident ? 'GROUP AVG HR' : isShowingWorker ? 'HEART RATE' : 'AVG HR'}
                 </span>
               </div>
-              <span className={`font-mono text-sm font-bold ${avgHeartRate > 100 ? 'text-ember' : 'text-cyan'}`}>
+              <span className={`font-mono text-sm font-bold ${isShowingMassIncident || avgHeartRate > 100 ? 'text-danger' : 'text-cyan'}`}>
                 {avgHeartRate} BPM
               </span>
             </div>
+            
+            {/* Mass incident group stats */}
+            {isShowingMassIncident && groupBiometrics && (
+              <motion.div 
+                className="grid grid-cols-2 gap-2 mb-2"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+              >
+                <div className="bg-danger/10 rounded px-1.5 py-1 border border-danger/20">
+                  <span className="text-[7px] font-mono text-danger/70 block">MAX HR</span>
+                  <span className="text-[10px] font-mono text-danger font-bold">{groupBiometrics.maxHR} BPM</span>
+                </div>
+                <div className="bg-danger/10 rounded px-1.5 py-1 border border-danger/20">
+                  <span className="text-[7px] font-mono text-danger/70 block">MIN O2</span>
+                  <span className="text-[10px] font-mono text-danger font-bold">{groupBiometrics.minO2}%</span>
+                </div>
+              </motion.div>
+            )}
             
             {/* HR Sparkline - always show (worker-specific or placeholder) */}
             <div className="h-8">
@@ -205,6 +266,16 @@ const VitalsPanel = () => {
                   width={280}
                   height={32}
                 />
+              ) : isShowingMassIncident ? (
+                <div className="w-full h-full flex items-center justify-center bg-danger/5 rounded border border-danger/10">
+                  <motion.span 
+                    className="text-[8px] font-mono text-danger"
+                    animate={{ opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  >
+                    ⚠️ MONITORING {affectedWorkerIds.length} WORKERS
+                  </motion.span>
+                </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <span className="text-[8px] font-mono text-muted-foreground/50">SELECT WORKER FOR HR HISTORY</span>

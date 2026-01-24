@@ -17,10 +17,12 @@ import {
   Signal,
   Zap,
   CheckCircle2,
-  Link2
+  Link2,
+  MapPin
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { broadcast, subscribe, BroadcastPayload } from "@/utils/broadcastChannel";
+import { assessEnvironmentalRisk, calculateDangerZone, generateMultiWorkerAlert } from "@/utils/riskDetection";
 
 // Haptic feedback helper
 
@@ -257,48 +259,61 @@ const SiteCentre = () => {
     showTransmitFeedback("ppe");
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
-  // Trigger gas leak - MASS EMERGENCY affecting multiple workers
+  // Trigger gas leak - MASS EMERGENCY with proximity-based risk detection
   const handleGasLeak = useCallback(() => {
     triggerHaptic("heavy");
-    const nearbyWorkers = workers.slice(0, 3);
-    const affectedWorkerIds = nearbyWorkers.map(w => w.id);
+    
+    // Use central position of the map as hazard origin (simulating gas leak location)
+    const hazardCenter = { x: 50, y: 50 };
+    const hazardRadius = 35; // Affects workers within 35% of map
+    
+    // Assess which workers are at risk based on proximity
+    const riskAssessment = assessEnvironmentalRisk(workers, hazardCenter, hazardRadius, "GAS LEAK");
+    const affectedWorkerIds = riskAssessment.affectedWorkerIds;
+    
+    // If no workers in range, default to first 3
+    const finalAffectedIds = affectedWorkerIds.length > 0 ? affectedWorkerIds : workers.slice(0, 3).map(w => w.id);
+    const affectedWorkers = workers.filter(w => finalAffectedIds.includes(w.id));
+    
+    // Calculate danger zone bounds
+    const dangerZone = calculateDangerZone(workers, finalAffectedIds);
     
     // Update multiple workers' status locally
-    nearbyWorkers.forEach(w => {
+    affectedWorkers.forEach(w => {
       updateWorker(w.id, { status: "danger" as const });
     });
     
     const incident = {
       id: `incident-${Date.now()}`,
-      workerId: affectedWorkerIds[0],
-      workerName: workers[0].name,
+      workerId: finalAffectedIds[0],
+      workerName: affectedWorkers[0]?.name || "Unknown",
       type: "environmental" as const,
       severity: "critical" as const,
       timestamp: Date.now(),
-      position: { x: 0, y: 0 },
+      position: hazardCenter,
       resolved: false,
-      aiAnalysis: `🔴 SITE-WIDE EMERGENCY: Gas leak detected in Sector Alpha. Environmental sensors reading CRITICAL levels. ${affectedWorkerIds.length} workers at immediate risk. Full site evacuation ordered.`,
+      aiAnalysis: generateMultiWorkerAlert(finalAffectedIds, "GAS LEAK"),
     };
     
     // Create worker update packets for all affected workers
-    const workerUpdates = nearbyWorkers.map(w => ({
+    const workerUpdates = affectedWorkers.map(w => ({
       id: w.id,
       updates: { status: "danger" as const }
     }));
     
-    // Create log entries for each affected worker
+    // Create consolidated summary log + individual alerts
     const logs = [
       {
         timestamp: formatTimestamp(),
         type: "critical" as const,
-        message: incident.aiAnalysis,
+        message: `[CRT] MULTIPLE WORKERS AT RISK: ${finalAffectedIds.join(", ")}. HAZARD: GAS LEAK SECTOR ALPHA.`,
         priority: 100,
         incident,
       },
-      ...nearbyWorkers.slice(1).map(w => ({
+      ...affectedWorkers.slice(1).map(w => ({
         timestamp: formatTimestamp(),
         type: "alert" as const,
-        message: `⚠️ AFFECTED: Worker ${w.id} (${w.name}) in hazard zone. Evacuate immediately.`,
+        message: `⚠️ AFFECTED: Worker ${w.id} (${w.name}) in hazard zone. Location: [${w.position.x.toFixed(1)}, ${w.position.y.toFixed(1)}]`,
         workerId: w.id,
         priority: 95,
       })),
@@ -309,14 +324,15 @@ const SiteCentre = () => {
     
     triggerGlitch();
     triggerViolationFlash();
-    setLastAction(`MASS EMERGENCY - ${affectedWorkerIds.length} WORKERS`);
+    setLastAction(`MASS EMERGENCY - ${finalAffectedIds.length} WORKERS AT RISK`);
     
-    // Broadcast MASS_EMERGENCY to other tabs - triggers site-wide protocol
+    // Broadcast MASS_EMERGENCY with danger zone info to other tabs
     broadcast("MASS_EMERGENCY", {
       incident,
-      affectedWorkerIds,
+      affectedWorkerIds: finalAffectedIds,
       workerUpdates,
       logs,
+      dangerZone,
       effects: { glitch: true, violationFlash: true },
     }, "site-centre");
     
