@@ -11,11 +11,11 @@ import Scanlines from "@/components/Scanlines";
 import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff, Cpu, Wifi } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
-import { useCrossTabSync } from "@/hooks/useCrossTabSync";
+import { useBroadcastSync } from "@/hooks/useBroadcastSync";
 
 const Dashboard = () => {
-  // Enable cross-tab synchronization for Site Centre triggers
-  useCrossTabSync();
+  // Enable cross-tab synchronization via BroadcastChannel API
+  useBroadcastSync();
   const { 
     isGlitching, 
     workers, 

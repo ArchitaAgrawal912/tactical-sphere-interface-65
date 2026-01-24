@@ -18,7 +18,10 @@ import {
   Zap
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
-import { broadcastIncident, broadcastMessage as broadcastMsgToTabs } from "@/hooks/useCrossTabSync";
+import { broadcast } from "@/utils/broadcastChannel";
+import { toast } from "sonner";
+
+// Haptic feedback helper
 
 // Haptic feedback helper
 const triggerHaptic = (pattern: "light" | "medium" | "heavy" = "medium") => {
@@ -87,13 +90,18 @@ const SiteCentre = () => {
     triggerGlitch();
     triggerViolationFlash();
     
-    // Broadcast to other tabs (Dashboard)
-    broadcastIncident({
+    // Broadcast to other tabs via BroadcastChannel API
+    broadcast("NEW_INCIDENT", {
       incident,
       log,
       workerUpdate: { id: "W-004", updates: { status: "danger" } },
-      triggerGlitch: true,
-      triggerViolationFlash: true,
+      effects: { glitch: true, violationFlash: true },
+    }, "site-centre");
+    
+    // Toast confirmation
+    toast.success("Packet Sent ✅", {
+      description: "FALL incident broadcast to Control Office",
+      duration: 2000,
     });
     
     setLastAction("FALL DETECTED - W-004");
@@ -134,8 +142,8 @@ const SiteCentre = () => {
       
       triggerViolationFlash();
       setLastAction(`ZONE BREACH - ${worker.id}`);
-      // Broadcast to other tabs
-      broadcastIncident({
+      // Broadcast to other tabs via BroadcastChannel API
+      broadcast("NEW_INCIDENT", {
         incident,
         log: {
           timestamp: formatTimestamp(),
@@ -146,7 +154,12 @@ const SiteCentre = () => {
           incident,
         },
         workerUpdate: { id: worker.id, updates: { inRestrictedZone: true, status: "warning" } },
-        triggerViolationFlash: true,
+        effects: { violationFlash: true },
+      }, "site-centre");
+      
+      toast.success("Packet Sent ✅", {
+        description: `ZONE BREACH broadcast for ${worker.id}`,
+        duration: 2000,
       });
     }
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
@@ -187,8 +200,8 @@ const SiteCentre = () => {
     
     triggerViolationFlash();
     setLastAction(`PPE ERROR - ${randomWorker.id}`);
-    // Broadcast to other tabs
-    broadcastIncident({
+    // Broadcast to other tabs via BroadcastChannel API
+    broadcast("NEW_INCIDENT", {
       incident,
       log: {
         timestamp: formatTimestamp(),
@@ -199,7 +212,12 @@ const SiteCentre = () => {
         incident,
       },
       workerUpdate: { id: randomWorker.id, updates: { ppe: Math.max(30, randomWorker.ppe - 35), status: "warning" } },
-      triggerViolationFlash: true,
+      effects: { violationFlash: true },
+    }, "site-centre");
+    
+    toast.success("Packet Sent ✅", {
+      description: `PPE violation broadcast for ${randomWorker.id}`,
+      duration: 2000,
     });
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
@@ -237,8 +255,8 @@ const SiteCentre = () => {
     triggerGlitch();
     triggerViolationFlash();
     setLastAction("GAS LEAK - SECTOR ALPHA");
-    // Broadcast to other tabs
-    broadcastIncident({
+    // Broadcast to other tabs via BroadcastChannel API
+    broadcast("NEW_INCIDENT", {
       incident,
       log: {
         timestamp: formatTimestamp(),
@@ -248,8 +266,12 @@ const SiteCentre = () => {
         incident,
       },
       workerUpdate: { id: "W-001", updates: { status: "danger" } },
-      triggerGlitch: true,
-      triggerViolationFlash: true,
+      effects: { glitch: true, violationFlash: true },
+    }, "site-centre");
+    
+    toast.success("Packet Sent ✅", {
+      description: "GAS LEAK broadcast to Control Office",
+      duration: 2000,
     });
   }, [workers, updateWorker, addIncident, addLog, triggerGlitch, triggerViolationFlash]);
 
@@ -269,8 +291,13 @@ const SiteCentre = () => {
     // Update local state
     addLog(log);
     
-    // Broadcast to other tabs
-    broadcastMsgToTabs(log);
+    // Broadcast to other tabs via BroadcastChannel API
+    broadcast("BROADCAST_MESSAGE", log, "site-centre");
+    
+    toast.success("Packet Sent ✅", {
+      description: "Message broadcast to Control Office",
+      duration: 2000,
+    });
     
     setBroadcastMsg("");
     setLastAction("BROADCAST SENT");
