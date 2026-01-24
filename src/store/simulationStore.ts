@@ -12,6 +12,11 @@ import {
   isInRestrictedZone,
   simulateBiometricDrift,
 } from "@/utils/simEngine";
+import { 
+  ActiveProtocol, 
+  createActiveProtocol, 
+  getProtocolForIncident 
+} from "@/utils/safetyProtocols";
 
 interface SimulationState {
   // Workers
@@ -79,6 +84,18 @@ interface SimulationState {
   // Sonar pulse trigger
   sonarPulseActive: boolean;
   triggerSonarPulse: () => void;
+
+  // Response Protocol System
+  activeProtocol: ActiveProtocol | null;
+  executedActions: string[];
+  resolvedIncidents: Incident[];
+  activateProtocol: (incident: Incident) => void;
+  toggleProtocolStep: (stepId: string) => void;
+  executeProtocolAction: (actionId: string) => void;
+  verifyIncident: () => void;
+  markFalseAlarm: () => void;
+  resolveActiveIncident: () => void;
+  dismissProtocol: () => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -398,5 +415,150 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         state.triggerViolationFlash();
       }
     }
+  },
+
+  // Response Protocol System
+  activeProtocol: null,
+  executedActions: [],
+  resolvedIncidents: [],
+
+  activateProtocol: (incident: Incident) => {
+    const protocol = createActiveProtocol(incident);
+    set({ 
+      activeProtocol: protocol,
+      activeIncident: incident,
+      executedActions: [],
+      focusedWorkerId: incident.workerId,
+      trackedWorkerId: incident.workerId,
+    });
+  },
+
+  toggleProtocolStep: (stepId: string) => {
+    const state = get();
+    if (!state.activeProtocol) return;
+
+    const isCompleted = state.activeProtocol.completedSteps.includes(stepId);
+    const newCompletedSteps = isCompleted
+      ? state.activeProtocol.completedSteps.filter(id => id !== stepId)
+      : [...state.activeProtocol.completedSteps, stepId];
+
+    set({
+      activeProtocol: {
+        ...state.activeProtocol,
+        completedSteps: newCompletedSteps,
+      },
+    });
+  },
+
+  executeProtocolAction: (actionId: string) => {
+    const state = get();
+    if (state.executedActions.includes(actionId)) return;
+
+    set({ executedActions: [...state.executedActions, actionId] });
+
+    // Log the action
+    state.addLog({
+      timestamp: formatTimestamp(),
+      type: "info",
+      message: `Protocol action executed: ${actionId.replace("act-", "").toUpperCase()}`,
+      priority: 60,
+    });
+  },
+
+  verifyIncident: () => {
+    const state = get();
+    if (!state.activeProtocol) return;
+
+    set({
+      activeProtocol: {
+        ...state.activeProtocol,
+        verificationStatus: "verified",
+      },
+    });
+
+    // Update worker status to verified emergency
+    if (state.activeIncident) {
+      set((s) => ({
+        workers: s.workers.map((w) =>
+          w.id === state.activeIncident?.workerId
+            ? { ...w, status: "danger" as const }
+            : w
+        ),
+      }));
+
+      state.addLog({
+        timestamp: formatTimestamp(),
+        type: "critical",
+        message: `VERIFIED: Emergency confirmed for ${state.activeIncident.workerId}. Response protocol active.`,
+        workerId: state.activeIncident.workerId,
+        priority: 95,
+      });
+    }
+  },
+
+  markFalseAlarm: () => {
+    const state = get();
+    if (!state.activeProtocol) return;
+
+    set({
+      activeProtocol: {
+        ...state.activeProtocol,
+        verificationStatus: "false_alarm",
+      },
+    });
+
+    if (state.activeIncident) {
+      state.addLog({
+        timestamp: formatTimestamp(),
+        type: "info",
+        message: `FALSE ALARM: Incident for ${state.activeIncident.workerId} marked as false positive.`,
+        workerId: state.activeIncident.workerId,
+        priority: 40,
+      });
+    }
+  },
+
+  resolveActiveIncident: () => {
+    const state = get();
+    if (!state.activeIncident || !state.activeProtocol) return;
+
+    const resolvedIncident = {
+      ...state.activeIncident,
+      resolved: true,
+    };
+
+    // Move to resolved incidents
+    set((s) => ({
+      resolvedIncidents: [resolvedIncident, ...s.resolvedIncidents],
+      incidents: s.incidents.map((i) =>
+        i.id === resolvedIncident.id ? resolvedIncident : i
+      ),
+      // Reset worker status to safe
+      workers: s.workers.map((w) =>
+        w.id === resolvedIncident.workerId
+          ? { ...w, status: "safe" as const }
+          : w
+      ),
+      // Clear active protocol
+      activeProtocol: null,
+      activeIncident: null,
+      executedActions: [],
+    }));
+
+    state.addLog({
+      timestamp: formatTimestamp(),
+      type: "info",
+      message: `RESOLVED: Incident for ${resolvedIncident.workerId} has been resolved. All protocols completed.`,
+      workerId: resolvedIncident.workerId,
+      priority: 50,
+    });
+  },
+
+  dismissProtocol: () => {
+    set({
+      activeProtocol: null,
+      activeIncident: null,
+      executedActions: [],
+    });
   },
 }));

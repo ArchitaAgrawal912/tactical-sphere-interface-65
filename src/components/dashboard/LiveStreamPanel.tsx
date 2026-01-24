@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Circle, Maximize2, User, Target, Lock, Signal } from "lucide-react";
+import { Camera, Circle, Maximize2, User, Target, Lock, Signal, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
 
@@ -15,12 +15,21 @@ const LiveStreamPanel = () => {
     setIsWarping,
     setZoomLevel,
     isWarping,
+    activeProtocol,
+    activeIncident,
+    verifyIncident,
+    markFalseAlarm,
   } = useSimulationStore();
   
   // Get tracked worker or default to first worker
   const trackedWorker = workers.find(w => w.id === trackedWorkerId) || workers[0];
   const [currentCam, setCurrentCam] = useState(0);
   const isTracking = !!trackedWorkerId;
+
+  // Check if we're in verification mode
+  const isPendingVerification = activeProtocol?.verificationStatus === "pending";
+  const isVerified = activeProtocol?.verificationStatus === "verified";
+  const isFalseAlarm = activeProtocol?.verificationStatus === "false_alarm";
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -74,6 +83,7 @@ const LiveStreamPanel = () => {
   const displayWorker = workers[currentCam] || workers[0];
   const isInDanger = displayWorker?.status === "danger" || displayWorker?.status === "warning";
   const isInRestrictedZone = displayWorker?.inRestrictedZone;
+  const isIncidentWorker = activeIncident?.workerId === displayWorker?.id;
 
   return (
     <motion.div
@@ -97,6 +107,7 @@ const LiveStreamPanel = () => {
 
       {/* Video frame with scanline effect */}
       <div className={`relative aspect-video bg-obsidian rounded overflow-hidden border ${
+        isIncidentWorker && isPendingVerification ? 'border-ember/50' :
         isInRestrictedZone ? 'border-[#FF8C00]/50' : isInDanger ? 'border-ember/30' : 'border-cyan/20'
       }`}>
         {/* Fake video content - gradient placeholder */}
@@ -123,9 +134,55 @@ const LiveStreamPanel = () => {
             <div className={`absolute left-1/2 bottom-0 w-px h-3 translate-y-full ${isInRestrictedZone ? 'bg-[#FF8C00]/50' : 'bg-cyan/50'}`} />
           </div>
 
-          {/* TARGET LOCKED overlay */}
+          {/* PENDING VERIFICATION overlay */}
           <AnimatePresence>
-            {isTracking && (
+            {isIncidentWorker && isPendingVerification && (
+              <motion.div
+                className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-ember/20 border border-ember/50 rounded"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [1, 0.7, 1], scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ opacity: { duration: 1, repeat: Infinity } }}
+              >
+                <AlertTriangle className="w-3 h-3 text-ember" />
+                <span className="text-[8px] font-mono text-ember font-bold">PENDING VERIFICATION</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* VERIFIED overlay */}
+          <AnimatePresence>
+            {isIncidentWorker && isVerified && (
+              <motion.div
+                className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-danger/20 border border-danger/50 rounded"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <CheckCircle className="w-3 h-3 text-danger" />
+                <span className="text-[8px] font-mono text-danger font-bold">VERIFIED EMERGENCY</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* FALSE ALARM overlay */}
+          <AnimatePresence>
+            {isIncidentWorker && isFalseAlarm && (
+              <motion.div
+                className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-muted/20 border border-muted/50 rounded"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+              >
+                <XCircle className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[8px] font-mono text-muted-foreground font-bold">FALSE ALARM</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* TARGET LOCKED overlay (when not in verification mode) */}
+          <AnimatePresence>
+            {isTracking && !isIncidentWorker && (
               <motion.div
                 className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-cyan/20 border border-cyan/50 rounded"
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -258,8 +315,39 @@ const LiveStreamPanel = () => {
         </div>
       </div>
 
+      {/* Verification buttons - shown when incident is pending */}
+      <AnimatePresence>
+        {isIncidentWorker && isPendingVerification && (
+          <motion.div
+            className="flex gap-2 mt-3"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <motion.button
+              onClick={verifyIncident}
+              className="flex-1 hud-button flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-danger/50 bg-danger/10 text-danger text-[10px] font-mono font-bold hover:bg-danger/20 hover:border-danger hover:shadow-[0_0_10px_rgba(255,0,0,0.3)] transition-all active:scale-95"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <CheckCircle className="w-3 h-3" />
+              CONFIRM INCIDENT
+            </motion.button>
+            <motion.button
+              onClick={markFalseAlarm}
+              className="flex-1 hud-button flex items-center justify-center gap-1.5 px-3 py-2 rounded border border-muted/50 bg-muted/10 text-muted-foreground text-[10px] font-mono font-bold hover:bg-muted/20 hover:border-muted transition-all active:scale-95"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <XCircle className="w-3 h-3" />
+              FALSE ALARM
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Worker/Camera selector */}
-      <div className="flex gap-2 mt-3">
+      <div className={`flex gap-2 ${isIncidentWorker && isPendingVerification ? '' : 'mt-3'}`}>
         {workers.slice(0, 5).map((worker, i) => (
           <button
             key={worker.id}
