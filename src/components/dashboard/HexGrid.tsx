@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useSimulationStore } from "@/store/simulationStore";
 import { WorkerTelemetry } from "@/utils/simEngine";
+import { RotateCcw } from "lucide-react";
 
 const HexGrid = () => {
   const { 
@@ -14,6 +15,9 @@ const HexGrid = () => {
     setIsWarping,
     setZoomLevel,
     setTrackedWorkerId,
+    showWorkers,
+    highlightedPPEType,
+    recenterMap,
   } = useSimulationStore();
 
   const getStatusColor = (worker: WorkerTelemetry) => {
@@ -42,38 +46,62 @@ const HexGrid = () => {
     }
   };
 
+  // Check if worker is failing PPE compliance for highlighted type
+  const isPPEHighlighted = (worker: WorkerTelemetry) => {
+    if (!highlightedPPEType) return false;
+    // Simulate PPE type failures based on worker PPE score
+    const threshold = highlightedPPEType === "helmet" ? 90 : highlightedPPEType === "vest" ? 80 : 70;
+    return worker.ppe < threshold;
+  };
+
   const handleWorkerClick = (worker: WorkerTelemetry) => {
     const isFocused = focusedWorkerId === worker.id;
     if (isFocused) {
-      setFocusedWorkerId(null);
-      setActiveIncident(null);
-      setTrackedWorkerId(null);
-      setZoomLevel(1);
+      // Clicking focused worker recenters
+      recenterMap();
     } else {
       setIsWarping(true);
-      setZoomLevel(1.8);
+      setZoomLevel(1.5); // Reduced zoom for better centering
       setFocusedWorkerId(worker.id);
       setTrackedWorkerId(worker.id);
       setTimeout(() => setIsWarping(false), 800);
-      setTimeout(() => setZoomLevel(1), 5000);
+      // Auto-reset zoom after 8 seconds
+      setTimeout(() => {
+        setZoomLevel(1);
+      }, 8000);
     }
+  };
+
+  const handleCenterClick = () => {
+    recenterMap();
   };
 
   const focusedWorker = workers.find(w => w.id === focusedWorkerId);
 
+  // Calculate camera offset to center on focused worker
+  const getCameraOffset = () => {
+    if (!focusedWorker) return { x: 0, y: 0 };
+    // Center the worker in viewport by calculating offset from center (50,50)
+    const offsetX = (50 - focusedWorker.position.x) * 2;
+    const offsetY = (50 - focusedWorker.position.y) * 2;
+    return { x: offsetX, y: offsetY };
+  };
+
+  const cameraOffset = getCameraOffset();
+
   return (
     <motion.div 
-      className="relative w-full aspect-square mx-auto"
+      className="relative w-full aspect-square mx-auto overflow-visible"
       animate={{
         scale: zoomLevel,
-        x: focusedWorker ? `${(50 - focusedWorker.position.x) * 3}%` : 0,
-        y: focusedWorker ? `${(50 - focusedWorker.position.y) * 3}%` : 0,
+        x: `${cameraOffset.x}%`,
+        y: `${cameraOffset.y}%`,
       }}
       transition={{ 
         type: "spring", 
-        stiffness: 100, 
-        damping: 20,
-        duration: 0.8 
+        stiffness: 80, 
+        damping: 25,
+        mass: 1,
       }}
     >
       {/* Warp effect overlay */}
@@ -212,10 +240,13 @@ const HexGrid = () => {
         />
       </motion.div>
 
-      {/* Center point */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+      {/* Center point - clickable to recenter */}
+      <button 
+        onClick={handleCenterClick}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
+      >
         <motion.div
-          className="w-6 h-6 bg-cyan rounded-full"
+          className="w-6 h-6 bg-cyan rounded-full group-hover:scale-125 transition-transform"
           animate={{ 
             scale: [1, 1.2, 1],
             boxShadow: [
@@ -227,132 +258,161 @@ const HexGrid = () => {
           transition={{ duration: 2, repeat: Infinity }}
         />
         <div className="absolute inset-0 w-6 h-6 bg-cyan/30 rounded-full animate-ping" />
-      </div>
+        {/* Recenter icon on hover */}
+        <motion.div
+          className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <RotateCcw className="w-3 h-3 text-cyan" />
+        </motion.div>
+      </button>
 
       {/* Worker nodes with smooth gliding transitions */}
-      {workers.map((worker, index) => {
-        const isFocused = focusedWorkerId === worker.id;
-        const hasActiveIncident = activeIncident?.workerId === worker.id;
+      <AnimatePresence>
+        {showWorkers && workers.map((worker, index) => {
+          const isFocused = focusedWorkerId === worker.id;
+          const hasActiveIncident = activeIncident?.workerId === worker.id;
+          const isPPEFailing = isPPEHighlighted(worker);
 
-        return (
-          <motion.div
-            key={worker.id}
-            className="absolute cursor-pointer"
-            initial={{ 
-              left: `${worker.position.x}%`,
-              top: `${worker.position.y}%`,
-              scale: 0, 
-              opacity: 0 
-            }}
-            animate={{ 
-              left: `${worker.position.x}%`,
-              top: `${worker.position.y}%`,
-              scale: 1,
-              opacity: 1,
-              x: "-50%",
-              y: "-50%"
-            }}
-            transition={{ 
-              left: { type: "spring", stiffness: 50, damping: 15 },
-              top: { type: "spring", stiffness: 50, damping: 15 },
-              scale: { delay: index * 0.1 },
-              opacity: { delay: index * 0.1 }
-            }}
-            onClick={() => handleWorkerClick(worker)}
-          >
-            {/* Elevated HR amber ring pulse */}
-            <AnimatePresence>
-              {worker.hrElevated && !isFocused && !hasActiveIncident && (
-                <motion.div
-                  className="absolute -inset-3"
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.3, 0.8] }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <div className="w-full h-full rounded-full border-2 border-ember/60" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Status ring for focused/incident workers */}
-            <AnimatePresence>
-              {(isFocused || hasActiveIncident) && (
-                <motion.div
-                  className="absolute -inset-4"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                >
-                  <motion.div
-                    className={`w-full h-full rounded-full border-2 ${
-                      worker.inRestrictedZone ? 'border-[#FF8C00]' :
-                      hasActiveIncident ? 'border-ember' : 'border-cyan'
-                    }`}
-                    animate={{ 
-                      rotate: 360,
-                      boxShadow: worker.inRestrictedZone
-                        ? ["0 0 20px rgba(255,140,0,0.5)", "0 0 40px rgba(255,140,0,0.8)", "0 0 20px rgba(255,140,0,0.5)"]
-                        : hasActiveIncident 
-                        ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
-                        : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
-                    }}
-                    transition={{ 
-                      rotate: { duration: 3, repeat: Infinity, ease: "linear" },
-                      boxShadow: { duration: 1, repeat: Infinity }
-                    }}
-                  />
-                  {/* Corner markers */}
-                  {[0, 90, 180, 270].map((angle) => (
-                    <motion.div
-                      key={angle}
-                      className={`absolute w-2 h-2 ${
-                        worker.inRestrictedZone ? 'bg-[#FF8C00]' :
-                        hasActiveIncident ? 'bg-ember' : 'bg-cyan'
-                      }`}
-                      style={{
-                        top: "50%",
-                        left: "50%",
-                        transform: `rotate(${angle}deg) translateY(-20px) translateX(-50%)`,
-                      }}
-                      animate={{ opacity: [1, 0.5, 1] }}
-                      transition={{ duration: 0.5, repeat: Infinity, delay: angle / 360 }}
-                    />
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Worker node dot */}
+          return (
             <motion.div
-              className={`rounded-full ${getStatusColor(worker)} ${getStatusGlow(worker, isFocused)}`}
-              style={{
-                width: isFocused ? "20px" : "14px",
-                height: isFocused ? "20px" : "14px",
+              key={worker.id}
+              className="absolute cursor-pointer"
+              initial={{ 
+                left: `${worker.position.x}%`,
+                top: `${worker.position.y}%`,
+                scale: 0, 
+                opacity: 0 
               }}
-              animate={hasActiveIncident || worker.inRestrictedZone ? {
-                scale: [1, 1.3, 1],
-              } : {}}
-              transition={{ duration: 0.5, repeat: (hasActiveIncident || worker.inRestrictedZone) ? Infinity : 0 }}
-              whileHover={{ scale: 1.5 }}
-            />
-
-            {/* Worker ID label */}
-            <motion.div
-              className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isFocused ? 1 : 0.7 }}
+              animate={{ 
+                left: `${worker.position.x}%`,
+                top: `${worker.position.y}%`,
+                scale: 1,
+                opacity: 1,
+                x: "-50%",
+                y: "-50%"
+              }}
+              exit={{
+                scale: 0,
+                opacity: 0,
+              }}
+              transition={{ 
+                left: { type: "spring", stiffness: 50, damping: 15 },
+                top: { type: "spring", stiffness: 50, damping: 15 },
+                scale: { delay: index * 0.1 },
+                opacity: { delay: index * 0.1 }
+              }}
+              onClick={() => handleWorkerClick(worker)}
             >
-              <span className={`text-[9px] font-mono ${
-                worker.inRestrictedZone ? 'text-[#FF8C00]' :
-                hasActiveIncident ? 'text-ember' : 'text-cyan'
-              }`}>
-                {worker.id}
-              </span>
+              {/* PPE violation highlight ring */}
+              <AnimatePresence>
+                {isPPEFailing && !isFocused && (
+                  <motion.div
+                    className="absolute -inset-4"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  >
+                    <div className="w-full h-full rounded-full border-2 border-[#FF8C00]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Elevated HR amber ring pulse */}
+              <AnimatePresence>
+                {worker.hrElevated && !isFocused && !hasActiveIncident && !isPPEFailing && (
+                  <motion.div
+                    className="absolute -inset-3"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.3, 0.8] }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <div className="w-full h-full rounded-full border-2 border-ember/60" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Status ring for focused/incident workers */}
+              <AnimatePresence>
+                {(isFocused || hasActiveIncident) && (
+                  <motion.div
+                    className="absolute -inset-4"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                  >
+                    <motion.div
+                      className={`w-full h-full rounded-full border-2 ${
+                        worker.inRestrictedZone ? 'border-[#FF8C00]' :
+                        hasActiveIncident ? 'border-ember' : 'border-cyan'
+                      }`}
+                      animate={{ 
+                        rotate: 360,
+                        boxShadow: worker.inRestrictedZone
+                          ? ["0 0 20px rgba(255,140,0,0.5)", "0 0 40px rgba(255,140,0,0.8)", "0 0 20px rgba(255,140,0,0.5)"]
+                          : hasActiveIncident 
+                          ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
+                          : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
+                      }}
+                      transition={{ 
+                        rotate: { duration: 3, repeat: Infinity, ease: "linear" },
+                        boxShadow: { duration: 1, repeat: Infinity }
+                      }}
+                    />
+                    {/* Corner markers */}
+                    {[0, 90, 180, 270].map((angle) => (
+                      <motion.div
+                        key={angle}
+                        className={`absolute w-2 h-2 ${
+                          worker.inRestrictedZone ? 'bg-[#FF8C00]' :
+                          hasActiveIncident ? 'bg-ember' : 'bg-cyan'
+                        }`}
+                        style={{
+                          top: "50%",
+                          left: "50%",
+                          transform: `rotate(${angle}deg) translateY(-20px) translateX(-50%)`,
+                        }}
+                        animate={{ opacity: [1, 0.5, 1] }}
+                        transition={{ duration: 0.5, repeat: Infinity, delay: angle / 360 }}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Worker node dot */}
+              <motion.div
+                className={`rounded-full ${isPPEFailing ? 'bg-[#FF8C00]' : getStatusColor(worker)} ${getStatusGlow(worker, isFocused)}`}
+                style={{
+                  width: isFocused ? "20px" : "14px",
+                  height: isFocused ? "20px" : "14px",
+                }}
+                animate={(hasActiveIncident || worker.inRestrictedZone || isPPEFailing) ? {
+                  scale: [1, 1.3, 1],
+                } : {}}
+                transition={{ duration: 0.5, repeat: (hasActiveIncident || worker.inRestrictedZone || isPPEFailing) ? Infinity : 0 }}
+                whileHover={{ scale: 1.5 }}
+              />
+
+              {/* Worker ID label */}
+              <motion.div
+                className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isFocused ? 1 : 0.7 }}
+              >
+                <span className={`text-[9px] font-mono ${
+                  isPPEFailing ? 'text-[#FF8C00]' :
+                  worker.inRestrictedZone ? 'text-[#FF8C00]' :
+                  hasActiveIncident ? 'text-ember' : 'text-cyan'
+                }`}>
+                  {worker.id}
+                </span>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        );
-      })}
+          );
+        })}
+      </AnimatePresence>
 
       {/* Focused worker data card */}
       <AnimatePresence>

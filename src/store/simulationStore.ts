@@ -40,6 +40,7 @@ interface SimulationState {
   setZoomLevel: (level: number) => void;
   isWarping: boolean;
   setIsWarping: (warping: boolean) => void;
+  recenterMap: () => void;
 
   // Camera tracking (for live feed)
   trackedWorkerId: string | null;
@@ -58,6 +59,21 @@ interface SimulationState {
   setIsRunning: (running: boolean) => void;
   simulationTick: () => void;
   biometricTick: () => void;
+
+  // Worker visibility
+  showWorkers: boolean;
+  toggleWorkersVisibility: () => void;
+
+  // PPE highlight
+  highlightedPPEType: string | null;
+  setHighlightedPPEType: (type: string | null) => void;
+
+  // Manual incident trigger
+  triggerManualIncident: (workerId: string, type: string) => void;
+
+  // Scroll to latest alert
+  scrollToLatestAlert: () => void;
+  alertScrollTrigger: number;
 }
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -163,6 +179,16 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   setZoomLevel: (level) => set({ zoomLevel: level }),
   isWarping: false,
   setIsWarping: (warping) => set({ isWarping: warping }),
+  recenterMap: () => {
+    set({ 
+      focusedWorkerId: null, 
+      activeIncident: null, 
+      trackedWorkerId: null,
+      zoomLevel: 1,
+      isWarping: false,
+      highlightedPPEType: null,
+    });
+  },
 
   // Camera tracking
   trackedWorkerId: null,
@@ -185,6 +211,60 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   // Simulation controls
   isRunning: true,
   setIsRunning: (running) => set({ isRunning: running }),
+
+  // Worker visibility
+  showWorkers: true,
+  toggleWorkersVisibility: () => set((state) => ({ showWorkers: !state.showWorkers })),
+
+  // PPE highlight
+  highlightedPPEType: null,
+  setHighlightedPPEType: (type) => set((state) => ({ 
+    highlightedPPEType: state.highlightedPPEType === type ? null : type 
+  })),
+
+  // Manual incident trigger
+  triggerManualIncident: (workerId, type) => {
+    const state = get();
+    const worker = state.workers.find(w => w.id === workerId);
+    if (!worker) return;
+
+    const incident: Incident = {
+      id: `incident-${Date.now()}`,
+      workerId,
+      workerName: worker.name,
+      type: type as any,
+      severity: "critical",
+      timestamp: Date.now(),
+      position: { ...worker.position },
+      resolved: false,
+      aiAnalysis: type === "fall" 
+        ? `CRITICAL: AI Analysis detected sudden vertical acceleration change for ${workerId}. High probability of slip-and-fall incident. GPS coordinates locked at [${worker.position.x.toFixed(1)}, ${worker.position.y.toFixed(1)}]. Emergency response required.`
+        : `ALERT: Manual override triggered for ${workerId}. Incident type: ${type.toUpperCase()}. Location: ${worker.zone}.`,
+    };
+
+    state.addIncident(incident);
+    state.addLog({
+      timestamp: formatTimestamp(),
+      type: "critical",
+      message: incident.aiAnalysis,
+      workerId,
+      priority: 100,
+      incident,
+    });
+    state.triggerGlitch();
+    state.triggerViolationFlash();
+
+    // Update worker status
+    set((s) => ({
+      workers: s.workers.map((w) =>
+        w.id === workerId ? { ...w, status: "danger" as const } : w
+      ),
+    }));
+  },
+
+  // Scroll to latest alert
+  alertScrollTrigger: 0,
+  scrollToLatestAlert: () => set((state) => ({ alertScrollTrigger: state.alertScrollTrigger + 1 })),
 
   // Biometric tick (updates HR/O2 with drift, checks thresholds)
   biometricTick: () => {

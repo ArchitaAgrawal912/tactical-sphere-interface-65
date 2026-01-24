@@ -1,17 +1,28 @@
 import { motion } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import HexGrid from "@/components/dashboard/HexGrid";
 import VitalsPanel from "@/components/dashboard/VitalsPanel";
 import LiveStreamPanel from "@/components/dashboard/LiveStreamPanel";
 import CommsPanel from "@/components/dashboard/CommsPanel";
 import MetricsPanel from "@/components/dashboard/MetricsPanel";
 import Scanlines from "@/components/Scanlines";
-import { AlertTriangle, Shield, Users, Bell, Play, Pause } from "lucide-react";
+import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
 
 const Dashboard = () => {
-  const { isGlitching, workers, incidents, isRunning, setIsRunning, violationFlash } = useSimulationStore();
+  const { 
+    isGlitching, 
+    workers, 
+    incidents, 
+    isRunning, 
+    setIsRunning, 
+    violationFlash,
+    showWorkers,
+    toggleWorkersVisibility,
+    recenterMap,
+    scrollToLatestAlert,
+  } = useSimulationStore();
   
   // Initialize simulation with 4-second movement, 15-second narrative
   useWorkerSim({ 
@@ -36,16 +47,20 @@ const Dashboard = () => {
 
   const activeAlerts = incidents.filter(i => !i.resolved && (i.severity === "critical" || i.severity === "high")).length;
 
+  const handleAlertsClick = () => {
+    scrollToLatestAlert();
+  };
+
   return (
     <div className={`min-h-screen bg-obsidian relative overflow-hidden transition-all duration-200 ${
       isGlitching ? 'animate-[glitch_0.3s_ease-in-out]' : ''
     }`}>
       <Scanlines />
 
-      {/* Critical alert overlay */}
+      {/* Critical alert overlay - z-40 so it doesn't block buttons */}
       {isGlitching && (
         <motion.div
-          className="fixed inset-0 z-50 pointer-events-none"
+          className="fixed inset-0 z-40 pointer-events-none"
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 0.3, 0] }}
           transition={{ duration: 0.3 }}
@@ -69,7 +84,7 @@ const Dashboard = () => {
 
       {/* Top header bar */}
       <motion.header 
-        className={`fixed top-0 left-0 right-0 z-40 glass-panel border-b px-6 py-3 transition-colors ${
+        className={`fixed top-0 left-0 right-0 z-50 glass-panel border-b px-6 py-3 transition-colors ${
           isGlitching ? 'border-danger/50' : 'border-cyan/20'
         }`}
         initial={{ y: -100 }}
@@ -92,27 +107,48 @@ const Dashboard = () => {
             {/* Simulation controls */}
             <button
               onClick={() => setIsRunning(!isRunning)}
-              className={`flex items-center gap-2 px-3 py-1 rounded border transition-colors ${
+              className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all ${
                 isRunning 
-                  ? 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20' 
-                  : 'bg-ember/10 border-ember/30 text-ember hover:bg-ember/20'
-              }`}
+                  ? 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)]' 
+                  : 'bg-ember/10 border-ember/30 text-ember hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_10px_rgba(255,191,0,0.3)]'
+              } active:scale-95`}
             >
               {isRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               <span className="text-xs font-mono">{isRunning ? 'PAUSE' : 'RESUME'}</span>
             </button>
 
+            {/* Recenter button */}
+            <button
+              onClick={recenterMap}
+              className="hud-button flex items-center gap-2 px-3 py-1 rounded border border-cyan/30 text-cyan bg-cyan/10 hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] transition-all active:scale-95"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span className="text-xs font-mono">RECENTER</span>
+            </button>
+
             {/* Stats pills */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1 bg-cyan/10 border border-cyan/30 rounded">
-                <Users className="w-3 h-3 text-cyan" />
-                <span className="text-xs font-mono text-cyan">{workers.length} ACTIVE</span>
-              </div>
-              <motion.div 
-                className={`flex items-center gap-2 px-3 py-1 rounded border ${
+              {/* Workers visibility toggle */}
+              <button
+                onClick={toggleWorkersVisibility}
+                className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all active:scale-95 ${
+                  showWorkers
+                    ? 'bg-cyan/10 border-cyan/30 text-cyan hover:bg-cyan/20 hover:border-cyan hover:shadow-[0_0_10px_rgba(0,242,255,0.3)]'
+                    : 'bg-muted/10 border-muted/30 text-muted-foreground hover:border-muted hover:bg-muted/20'
+                }`}
+              >
+                {showWorkers ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                <Users className="w-3 h-3" />
+                <span className="text-xs font-mono">{workers.length} ACTIVE</span>
+              </button>
+              
+              {/* Alerts badge - clickable */}
+              <motion.button
+                onClick={handleAlertsClick}
+                className={`hud-button flex items-center gap-2 px-3 py-1 rounded border transition-all active:scale-95 ${
                   activeAlerts > 0 
-                    ? 'bg-ember/10 border-ember/30' 
-                    : 'bg-muted/10 border-muted/30'
+                    ? 'bg-ember/10 border-ember/30 hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_10px_rgba(255,191,0,0.3)]' 
+                    : 'bg-muted/10 border-muted/30 hover:bg-muted/20'
                 }`}
                 animate={activeAlerts > 0 ? { opacity: [1, 0.7, 1] } : {}}
                 transition={{ duration: 1, repeat: Infinity }}
@@ -121,13 +157,16 @@ const Dashboard = () => {
                 <span className={`text-xs font-mono ${activeAlerts > 0 ? 'text-ember' : 'text-muted-foreground'}`}>
                   {activeAlerts} ALERTS
                 </span>
-              </motion.div>
+              </motion.button>
             </div>
 
             <div className="h-4 w-px bg-cyan/30" />
 
             {/* Notifications */}
-            <button className="relative p-2 hover:bg-cyan/10 rounded transition-colors">
+            <button 
+              onClick={handleAlertsClick}
+              className="hud-button relative p-2 hover:bg-cyan/10 rounded transition-all hover:shadow-[0_0_10px_rgba(0,242,255,0.3)] active:scale-95"
+            >
               <Bell className="w-4 h-4 text-cyan" />
               {activeAlerts > 0 && (
                 <motion.span 
@@ -151,7 +190,7 @@ const Dashboard = () => {
 
       {/* Main dashboard layout */}
       <main className="pt-20 min-h-screen relative">
-        {/* Corner HUD panels */}
+        {/* Corner HUD panels - z-30 to stay below header */}
         <div className="fixed top-24 left-4 z-30 hidden xl:block">
           <VitalsPanel />
         </div>
@@ -198,8 +237,5 @@ const Dashboard = () => {
     </div>
   );
 };
-
-// Need to import useState
-import { useState } from "react";
 
 export default Dashboard;

@@ -2,7 +2,21 @@ import { motion } from "framer-motion";
 import { ShieldCheck, HardHat, Glasses, AlertTriangle } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 
-const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max: number; color: string; size?: number }) => {
+const CircularProgress = ({ 
+  value, 
+  max, 
+  color, 
+  size = 70,
+  isHighlighted = false,
+  onClick,
+}: { 
+  value: number; 
+  max: number; 
+  color: string; 
+  size?: number;
+  isHighlighted?: boolean;
+  onClick?: () => void;
+}) => {
   const radius = (size - 8) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / max) * circumference;
@@ -11,7 +25,12 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
   const glowColor = color === "cyan" ? "rgba(0,242,255,0.5)" : color === "ember" ? "rgba(255,191,0,0.5)" : "rgba(255,0,0,0.5)";
 
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
+    <svg 
+      width={size} 
+      height={size} 
+      className={`transform -rotate-90 cursor-pointer transition-transform hover:scale-110 active:scale-95 ${isHighlighted ? 'scale-110' : ''}`}
+      onClick={onClick}
+    >
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -32,16 +51,31 @@ const CircularProgress = ({ value, max, color, size = 70 }: { value: number; max
         className={colorClass}
         strokeDasharray={circumference}
         initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset }}
+        animate={{ 
+          strokeDashoffset,
+          filter: isHighlighted ? `drop-shadow(0 0 12px ${glowColor})` : `drop-shadow(0 0 6px ${glowColor})`,
+        }}
         transition={{ duration: 1, ease: "easeOut" }}
-        style={{ filter: `drop-shadow(0 0 6px ${glowColor})` }}
       />
+      {isHighlighted && (
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius + 4}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          className={colorClass}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+      )}
     </svg>
   );
 };
 
 const MetricsPanel = () => {
-  const { workers, incidents } = useSimulationStore();
+  const { workers, incidents, highlightedPPEType, setHighlightedPPEType } = useSimulationStore();
 
   // Calculate PPE metrics from workers
   const avgPPE = Math.round(workers.reduce((acc, w) => acc + w.ppe, 0) / workers.length);
@@ -54,6 +88,7 @@ const MetricsPanel = () => {
   const metrics = [
     { 
       label: "Helmets", 
+      type: "helmet",
       value: helmetCompliance, 
       max: 100, 
       color: helmetCompliance >= 90 ? "cyan" : helmetCompliance >= 70 ? "ember" : "danger",
@@ -61,6 +96,7 @@ const MetricsPanel = () => {
     },
     { 
       label: "Vests", 
+      type: "vest",
       value: vestCompliance, 
       max: 100, 
       color: vestCompliance >= 90 ? "cyan" : vestCompliance >= 70 ? "ember" : "danger",
@@ -68,6 +104,7 @@ const MetricsPanel = () => {
     },
     { 
       label: "Eyewear", 
+      type: "eyewear",
       value: eyewearCompliance, 
       max: 100, 
       color: eyewearCompliance >= 90 ? "cyan" : eyewearCompliance >= 70 ? "ember" : "danger",
@@ -79,6 +116,10 @@ const MetricsPanel = () => {
   const activeViolations = incidents.filter(i => !i.resolved && i.type === "ppe_violation").length;
   const safeWorkers = workers.filter(w => w.status === "safe").length;
 
+  const handleMetricClick = (type: string) => {
+    setHighlightedPPEType(type);
+  };
+
   return (
     <motion.div
       className="glass-panel clip-corner-br p-4 w-72"
@@ -89,15 +130,31 @@ const MetricsPanel = () => {
       <div className="flex items-center gap-2 mb-4">
         <ShieldCheck className="w-4 h-4 text-cyan" />
         <span className="hud-label">PPE Compliance</span>
+        {highlightedPPEType && (
+          <motion.span 
+            className="ml-auto text-[9px] font-mono text-ember uppercase"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          >
+            Filtering: {highlightedPPEType}
+          </motion.span>
+        )}
       </div>
 
-      {/* Circular metrics */}
+      {/* Circular metrics - clickable */}
       <div className="flex justify-around mb-4">
         {metrics.map((metric) => (
           <div key={metric.label} className="flex flex-col items-center">
             <div className="relative">
-              <CircularProgress value={metric.value} max={metric.max} color={metric.color} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <CircularProgress 
+                value={metric.value} 
+                max={metric.max} 
+                color={metric.color}
+                isHighlighted={highlightedPPEType === metric.type}
+                onClick={() => handleMetricClick(metric.type)}
+              />
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className={`text-sm font-orbitron font-bold ${
                   metric.color === "cyan" ? "text-cyan" : 
                   metric.color === "ember" ? "text-ember" : "text-danger"
@@ -106,13 +163,18 @@ const MetricsPanel = () => {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1 mt-2">
+            <button
+              onClick={() => handleMetricClick(metric.type)}
+              className={`flex items-center gap-1 mt-2 px-2 py-0.5 rounded transition-all hover:bg-cyan/10 active:scale-95 ${
+                highlightedPPEType === metric.type ? 'bg-cyan/20 border border-cyan/30' : ''
+              }`}
+            >
               <span className={
                 metric.color === "cyan" ? "text-cyan" : 
                 metric.color === "ember" ? "text-ember" : "text-danger"
               }>{metric.icon}</span>
               <span className="text-[10px] font-mono text-muted-foreground">{metric.label}</span>
-            </div>
+            </button>
           </div>
         ))}
       </div>
@@ -147,13 +209,17 @@ const MetricsPanel = () => {
           <p className="text-[10px] font-mono text-muted-foreground">WORKERS</p>
           <p className="text-cyan font-orbitron font-bold">{safeWorkers}/{workers.length}</p>
         </div>
-        <div className="bg-obsidian/50 rounded p-2 border border-ember/10">
+        <motion.div 
+          className="bg-obsidian/50 rounded p-2 border border-ember/10"
+          animate={activeViolations > 0 ? { borderColor: ["rgba(255,191,0,0.1)", "rgba(255,191,0,0.5)", "rgba(255,191,0,0.1)"] } : {}}
+          transition={{ duration: 1, repeat: Infinity }}
+        >
           <div className="flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-ember" />
             <p className="text-[10px] font-mono text-muted-foreground">VIOLATIONS</p>
           </div>
           <p className="text-ember font-orbitron font-bold">{activeViolations}</p>
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   );
