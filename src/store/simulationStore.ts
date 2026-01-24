@@ -59,6 +59,7 @@ interface SimulationState {
   setIsRunning: (running: boolean) => void;
   simulationTick: () => void;
   biometricTick: () => void;
+  hrHistoryCounter: number; // Counter for HR history updates
 
   // Worker visibility
   showWorkers: boolean;
@@ -277,10 +278,16 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     setTimeout(() => set({ sonarPulseActive: false }), 2000);
   },
 
+  // HR history update counter (update every 10th biometric tick = ~2 seconds)
+  hrHistoryCounter: 0,
+
   // Biometric tick (updates HR/O2 with drift, checks thresholds)
   biometricTick: () => {
     const state = get();
     if (!state.isRunning) return;
+
+    const newCounter = (state.hrHistoryCounter + 1) % 10;
+    const shouldUpdateHistory = newCounter === 0;
 
     const updatedWorkers = state.workers.map((worker) => {
       // Interpolate position towards target for smooth movement
@@ -300,6 +307,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       // Check HR threshold (> 100 BPM = elevated)
       const hrElevated = heartRate > 100;
 
+      // Update HR history every ~2 seconds (keep last 30 readings = 60 seconds)
+      const hrHistory = shouldUpdateHistory 
+        ? [...worker.hrHistory.slice(1), heartRate]
+        : worker.hrHistory;
+
       // Determine status
       let status: WorkerTelemetry["status"] = "safe";
       if (worker.inRestrictedZone) {
@@ -317,12 +329,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         heartRate,
         oxygenLevel,
         hrElevated,
+        hrHistory,
         status,
         lastUpdate: Date.now(),
       };
     });
 
-    set({ workers: updatedWorkers });
+    set({ workers: updatedWorkers, hrHistoryCounter: newCounter });
   },
 
   simulationTick: () => {
