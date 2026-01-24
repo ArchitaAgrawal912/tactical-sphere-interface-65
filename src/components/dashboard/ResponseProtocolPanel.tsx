@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { forwardRef } from "react";
 import { 
   ShieldAlert, 
   CheckCircle2, 
@@ -33,7 +34,7 @@ const ActionIcon = ({ icon }: { icon: ProtocolAction["icon"] }) => {
   }
 };
 
-const ResponseProtocolPanel = () => {
+const ResponseProtocolPanel = forwardRef<HTMLDivElement>((_, ref) => {
   const { 
     activeIncident,
     activeProtocol,
@@ -92,6 +93,7 @@ const ResponseProtocolPanel = () => {
 
   return (
     <motion.div
+      ref={ref}
       className={`glass-panel p-3 w-full ${getSeverityGlow()} ${getSeverityBorder()} border-2`}
       initial={{ opacity: 0, x: 50, scale: 0.95 }}
       animate={{ 
@@ -338,6 +340,8 @@ const ResponseProtocolPanel = () => {
       )}
     </motion.div>
   );
-};
+});
+
+ResponseProtocolPanel.displayName = "ResponseProtocolPanel";
 
 export default ResponseProtocolPanel;
