@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { ShieldCheck, HardHat, Glasses, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShieldCheck, HardHat, Glasses, AlertTriangle, User } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 
 const CircularProgress = ({ 
@@ -75,15 +75,27 @@ const CircularProgress = ({
 };
 
 const MetricsPanel = () => {
-  const { workers, incidents, highlightedPPEType, setHighlightedPPEType } = useSimulationStore();
+  const { workers, incidents, highlightedPPEType, setHighlightedPPEType, focusedWorkerId } = useSimulationStore();
 
-  // Calculate PPE metrics from workers
-  const avgPPE = Math.round(workers.reduce((acc, w) => acc + w.ppe, 0) / workers.length);
+  // Get focused worker or use global averages
+  const focusedWorker = workers.find(w => w.id === focusedWorkerId);
+  const isShowingWorker = !!focusedWorker;
+
+  // Calculate PPE metrics from workers (global) or focused worker
+  const avgPPE = focusedWorker 
+    ? focusedWorker.ppe 
+    : Math.round(workers.reduce((acc, w) => acc + w.ppe, 0) / workers.length);
   
-  // Simulate different PPE types
-  const helmetCompliance = Math.min(100, avgPPE + 5);
-  const vestCompliance = Math.max(60, avgPPE - 5);
-  const eyewearCompliance = Math.max(50, avgPPE - 15);
+  // Simulate different PPE types based on worker's PPE score
+  const helmetCompliance = focusedWorker 
+    ? (focusedWorker.ppe >= 90 ? 100 : focusedWorker.ppe >= 70 ? 85 : 60)
+    : Math.min(100, avgPPE + 5);
+  const vestCompliance = focusedWorker
+    ? (focusedWorker.ppe >= 80 ? 100 : focusedWorker.ppe >= 60 ? 75 : 50)
+    : Math.max(60, avgPPE - 5);
+  const eyewearCompliance = focusedWorker
+    ? (focusedWorker.ppe >= 70 ? 100 : focusedWorker.ppe >= 50 ? 70 : 40)
+    : Math.max(50, avgPPE - 15);
 
   const metrics = [
     { 
@@ -141,6 +153,32 @@ const MetricsPanel = () => {
           </motion.span>
         )}
       </div>
+
+      {/* Selected Worker Header */}
+      <AnimatePresence mode="wait">
+        {isShowingWorker ? (
+          <motion.div
+            key="worker-header"
+            className="mb-3 px-2 py-1.5 bg-cyan/10 border border-cyan/30 rounded flex items-center gap-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <User className="w-3 h-3 text-cyan" />
+            <span className="text-xs font-mono text-cyan font-bold">SELECTED: {focusedWorker?.id}</span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="global-header"
+            className="mb-3 px-2 py-1.5 bg-obsidian-light/50 border border-cyan/10 rounded flex items-center gap-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <span className="text-xs font-mono text-muted-foreground">GLOBAL AVERAGES</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Circular metrics - clickable */}
       <div className="flex justify-around mb-4">

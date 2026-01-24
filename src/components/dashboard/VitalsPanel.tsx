@@ -1,10 +1,10 @@
-import { motion } from "framer-motion";
-import { Activity, Cpu, Thermometer, Wifi, Heart, Wind } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, Cpu, Thermometer, Wifi, Heart, Wind, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSimulationStore } from "@/store/simulationStore";
 
 const VitalsPanel = () => {
-  const { workers, isRunning } = useSimulationStore();
+  const { workers, isRunning, focusedWorkerId } = useSimulationStore();
   const [uptime, setUptime] = useState(847 * 3600 + 23 * 60 + 45);
   const [temp, setTemp] = useState(42);
 
@@ -23,13 +23,18 @@ const VitalsPanel = () => {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Calculate average vitals from workers
-  const avgHeartRate = Math.round(
-    workers.reduce((acc, w) => acc + w.heartRate, 0) / workers.length
-  );
-  const avgOxygen = (
-    workers.reduce((acc, w) => acc + w.oxygenLevel, 0) / workers.length
-  ).toFixed(1);
+  // Get focused worker or calculate global averages
+  const focusedWorker = workers.find(w => w.id === focusedWorkerId);
+  const isShowingWorker = !!focusedWorker;
+
+  // Calculate average vitals from workers (for global view)
+  const avgHeartRate = focusedWorker 
+    ? focusedWorker.heartRate 
+    : Math.round(workers.reduce((acc, w) => acc + w.heartRate, 0) / workers.length);
+  
+  const avgOxygen = focusedWorker
+    ? focusedWorker.oxygenLevel.toFixed(1)
+    : (workers.reduce((acc, w) => acc + w.oxygenLevel, 0) / workers.length).toFixed(1);
 
   return (
     <motion.div
@@ -42,6 +47,37 @@ const VitalsPanel = () => {
         <Activity className="w-4 h-4 text-cyan" />
         <span className="hud-label">System Vitals</span>
       </div>
+
+      {/* Selected Worker Header */}
+      <AnimatePresence mode="wait">
+        {isShowingWorker ? (
+          <motion.div
+            key="worker-header"
+            className="mb-3 px-2 py-1.5 bg-cyan/10 border border-cyan/30 rounded flex items-center gap-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <User className="w-3 h-3 text-cyan" />
+            <span className="text-xs font-mono text-cyan font-bold">SELECTED: {focusedWorker.id}</span>
+            <motion.div
+              className="ml-auto w-2 h-2 rounded-full bg-cyan"
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="global-header"
+            className="mb-3 px-2 py-1.5 bg-obsidian-light/50 border border-cyan/10 rounded flex items-center gap-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <span className="text-xs font-mono text-muted-foreground">GLOBAL AVERAGES</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="space-y-3">
         {/* Uptime */}
@@ -73,11 +109,13 @@ const VitalsPanel = () => {
           </div>
         </div>
 
-        {/* Avg Heart Rate */}
+        {/* Heart Rate - shows selected worker or global avg */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Heart className="w-3 h-3 text-muted-foreground" />
-            <span className="text-xs font-mono text-muted-foreground">AVG HR</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              {isShowingWorker ? 'HEART RATE' : 'AVG HR'}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <motion.div
@@ -91,16 +129,40 @@ const VitalsPanel = () => {
           </div>
         </div>
 
-        {/* Avg Oxygen */}
+        {/* Oxygen Level - shows selected worker or global avg */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Wind className="w-3 h-3 text-muted-foreground" />
-            <span className="text-xs font-mono text-muted-foreground">AVG O2</span>
+            <span className="text-xs font-mono text-muted-foreground">
+              {isShowingWorker ? 'O2 LEVEL' : 'AVG O2'}
+            </span>
           </div>
           <span className={`font-mono text-sm ${parseFloat(avgOxygen) < 94 ? 'text-ember' : 'text-cyan'}`}>
             {avgOxygen}%
           </span>
         </div>
+
+        {/* Worker-specific PPE score when focused */}
+        <AnimatePresence>
+          {isShowingWorker && focusedWorker && (
+            <motion.div 
+              className="flex items-center justify-between"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-muted-foreground">PPE SCORE</span>
+              </div>
+              <span className={`font-mono text-sm ${
+                focusedWorker.ppe >= 90 ? 'text-cyan' : 
+                focusedWorker.ppe >= 70 ? 'text-ember' : 'text-danger'
+              }`}>
+                {focusedWorker.ppe}%
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Network Status */}
         <div className="flex items-center justify-between">
