@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, AlertTriangle, ChevronRight, Radio, Target } from "lucide-react";
+import { Terminal, AlertTriangle, Radio, Target, Eye, Wrench } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useState, useEffect, useRef } from "react";
 
@@ -19,10 +19,10 @@ const CommsPanel = () => {
     activateProtocol,
     activeProtocol,
     focusedWorkerId,
+    activeIncident,
   } = useSimulationStore();
 
   const [command, setCommand] = useState("");
-  const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -69,26 +69,43 @@ const CommsPanel = () => {
       setTimeout(() => setZoomLevel(1), 8000);
     }
     
-    // Activate protocol if incident exists and no active protocol
+    // Set active incident if exists
     if (log.incident) {
       setActiveIncident(log.incident);
-      if (!activeProtocol && (log.incident.severity === "critical" || log.incident.severity === "high")) {
-        activateProtocol(log.incident);
-      }
     }
+  };
+
+  // Handle action button click - always activates/updates protocol
+  const handleActionClick = (e: React.MouseEvent, log: typeof logs[0]) => {
+    e.stopPropagation(); // Prevent log click
+    
+    if (!log.incident) return;
+    
+    // Focus on worker
+    if (log.workerId) {
+      setFocusedWorkerId(log.workerId);
+      setTrackedWorkerId(log.workerId);
+      setIsWarping(true);
+      setZoomLevel(1.25);
+      setTimeout(() => setIsWarping(false), 800);
+    }
+    
+    // Set active incident and activate/update protocol
+    setActiveIncident(log.incident);
+    activateProtocol(log.incident);
+    setActiveLogId(log.id);
+    setTimeout(() => setActiveLogId(null), 3000);
   };
 
   const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && command.trim()) {
       const cmd = command.trim().toUpperCase();
-      setCommandHistory(prev => [...prev, cmd]);
       
       if (cmd === "CLEAR" || cmd === "RESET") {
         clearLogs();
-        setCommandFeedback("✓ Log cleared");
+        setCommandFeedback("✓ System reset complete");
       } else if (cmd.startsWith("EMERGENCY ") || cmd.startsWith("FALL ")) {
         const workerId = cmd.replace("EMERGENCY ", "").replace("FALL ", "").trim();
-        // Format worker ID properly
         const formattedId = workerId.startsWith("W-") ? workerId : `W-${workerId.padStart(3, "0")}`;
         const worker = workers.find(w => w.id === formattedId);
         if (worker) {
@@ -101,9 +118,9 @@ const CommsPanel = () => {
         triggerSonarPulse();
         setCommandFeedback("✓ Sonar pulse initiated");
       } else if (cmd === "HELP") {
-        setCommandFeedback("Commands: CLEAR, EMERGENCY [ID], SCAN");
+        setCommandFeedback("CLEAR, EMERGENCY [ID], SCAN");
       } else {
-        setCommandFeedback(`✗ Unknown command: ${cmd}`);
+        setCommandFeedback(`✗ Unknown: ${cmd}`);
       }
       
       setCommand("");
@@ -134,8 +151,13 @@ const CommsPanel = () => {
     switch (type) {
       case "critical": return "bg-danger/10 border-danger/30";
       case "alert": return "bg-ember/10 border-ember/30";
-      default: return "bg-transparent border-transparent";
+      default: return "bg-transparent border-cyan/10";
     }
+  };
+
+  // Check if this log's incident is currently active in protocol
+  const isIncidentActive = (log: typeof logs[0]) => {
+    return log.incident && activeIncident?.id === log.incident.id;
   };
 
   return (
@@ -145,95 +167,139 @@ const CommsPanel = () => {
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.4 }}
     >
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2">
         <Terminal className="w-4 h-4 text-cyan" />
-        <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">AI Detection Log</span>
+        <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">AI Detection Log</span>
         <div className="ml-auto flex items-center gap-1">
           <motion.div 
             className="w-1.5 h-1.5 bg-cyan rounded-full"
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
           />
-          <span className="text-[10px] font-mono text-muted-foreground tracking-wider">LIVE</span>
+          <span className="text-[9px] font-mono text-muted-foreground">LIVE</span>
         </div>
       </div>
 
-      {/* Terminal output */}
+      {/* Terminal output with fixed scrolling */}
       <div 
         ref={scrollRef}
-        className="h-44 overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 p-2 scrollbar-thin scrollbar-thumb-cyan/20 scrollbar-track-transparent"
+        className="max-h-[200px] overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 scrollbar-thin"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,242,255,0.3) transparent' }}
       >
-        <div className="space-y-1.5">
+        <div className="p-2 pb-10 space-y-2">
           <AnimatePresence mode="popLayout">
-            {logs.map((log, index) => {
-              const isActive = activeLogId === log.id;
-              const isLinkedToFocused = log.workerId === focusedWorkerId;
-              
-              return (
+            {logs.length === 0 ? (
               <motion.div
-                key={log.id}
-                layout
-                className={`terminal-text text-[10px] leading-relaxed rounded px-2 py-1.5 border cursor-pointer transition-all ${getTypeBg(log.type)} ${
-                  isActive 
-                    ? 'ring-2 ring-cyan ring-offset-1 ring-offset-obsidian' 
-                    : isLinkedToFocused
-                      ? 'border-cyan/50 bg-cyan/5'
-                      : 'hover:bg-cyan/5'
-                }`}
-                initial={{ opacity: 0, x: -20, height: 0 }}
-                animate={{ 
-                  opacity: index === 0 ? 1 : Math.max(0.4, 1 - index * 0.08), 
-                  x: 0,
-                  height: "auto"
-                }}
-                exit={{ opacity: 0, x: 20, height: 0 }}
-                transition={{ duration: 0.3 }}
-                onClick={() => handleLogClick(log)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-6"
               >
-                {/* High priority indicator */}
-                {(log.type === "critical" || log.type === "alert") && (
+                <p className="text-[10px] font-mono text-muted-foreground">SYSTEMS NOMINAL</p>
+                <p className="text-[9px] font-mono text-muted-foreground/50 mt-1">No active alerts</p>
+              </motion.div>
+            ) : (
+              logs.map((log, index) => {
+                const isActive = activeLogId === log.id;
+                const isLinkedToFocused = log.workerId === focusedWorkerId;
+                const isCurrentIncident = isIncidentActive(log);
+                const hasActionableIncident = log.incident && (log.type === "critical" || log.type === "alert");
+                
+                return (
                   <motion.div
-                    className="flex items-center gap-1 mb-1"
-                    animate={{ opacity: [1, 0.5, 1] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
+                    key={log.id}
+                    layout
+                    className={`terminal-text text-[10px] leading-relaxed rounded px-2 py-2 border cursor-pointer transition-all ${getTypeBg(log.type)} ${
+                      isActive 
+                        ? 'ring-2 ring-cyan ring-offset-1 ring-offset-obsidian' 
+                        : isCurrentIncident
+                          ? 'ring-1 ring-ember/50 bg-ember/5'
+                          : isLinkedToFocused
+                            ? 'border-cyan/50 bg-cyan/5'
+                            : 'hover:bg-cyan/5'
+                    }`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ 
+                      opacity: index === 0 ? 1 : Math.max(0.5, 1 - index * 0.06), 
+                      x: 0,
+                    }}
+                    exit={{ opacity: 0, x: 20 }}
+                    transition={{ duration: 0.3 }}
+                    onClick={() => handleLogClick(log)}
                   >
-                    <AlertTriangle className={`w-3 h-3 ${log.type === "critical" ? "text-danger" : "text-ember"}`} />
-                    <span className={`text-[9px] uppercase font-bold ${log.type === "critical" ? "text-danger" : "text-ember"}`}>
-                      {log.type === "critical" ? "CRITICAL ALERT" : "HIGH PRIORITY"}
-                    </span>
-                    {log.workerId && (
-                      <div className="flex items-center gap-0.5 ml-auto">
-                        <Target className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-[8px] text-muted-foreground">{log.workerId}</span>
-                      </div>
+                    {/* High priority indicator */}
+                    {(log.type === "critical" || log.type === "alert") && (
+                      <motion.div
+                        className="flex items-center gap-1 mb-1.5"
+                        animate={{ opacity: [1, 0.6, 1] }}
+                        transition={{ duration: 0.8, repeat: Infinity }}
+                      >
+                        <AlertTriangle className={`w-3 h-3 ${log.type === "critical" ? "text-danger" : "text-ember"}`} />
+                        <span className={`text-[9px] uppercase font-bold ${log.type === "critical" ? "text-danger" : "text-ember"}`}>
+                          {log.type === "critical" ? "CRITICAL" : "ALERT"}
+                        </span>
+                        {log.workerId && (
+                          <div className="flex items-center gap-0.5 ml-auto">
+                            <Target className="w-2.5 h-2.5 text-muted-foreground" />
+                            <span className="text-[8px] text-muted-foreground">{log.workerId}</span>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                    
+                    <div className="flex items-start gap-1 mb-0.5">
+                      <span className="text-muted-foreground shrink-0 text-[9px]">{log.timestamp}</span>
+                      <span className={`${getTypeColor(log.type)} shrink-0 text-[9px]`}>{getTypePrefix(log.type)}</span>
+                    </div>
+                    
+                    <p className={`${getTypeColor(log.type)} break-words text-[9px] leading-relaxed`}>
+                      {log.message.length > 120 ? log.message.slice(0, 120) + "..." : log.message}
+                    </p>
+
+                    {/* Action button for alerts */}
+                    {hasActionableIncident && (
+                      <motion.button
+                        onClick={(e) => handleActionClick(e, log)}
+                        className={`mt-2 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[9px] font-mono font-bold transition-all active:scale-95 ${
+                          isCurrentIncident
+                            ? 'bg-cyan/20 border border-cyan/50 text-cyan'
+                            : log.type === "critical"
+                              ? 'bg-danger/10 border border-danger/30 text-danger hover:bg-danger/20 hover:border-danger hover:shadow-[0_0_12px_rgba(255,0,0,0.4)]'
+                              : 'bg-ember/10 border border-ember/30 text-ember hover:bg-ember/20 hover:border-ember hover:shadow-[0_0_12px_rgba(255,191,0,0.4)]'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        {isCurrentIncident ? (
+                          <>
+                            <Eye className="w-3 h-3" />
+                            VIEW PROTOCOL
+                          </>
+                        ) : (
+                          <>
+                            <Wrench className="w-3 h-3" />
+                            FIX ALERT
+                          </>
+                        )}
+                      </motion.button>
                     )}
                   </motion.div>
-                )}
-                
-                <div className="flex items-start gap-1">
-                  <span className="text-muted-foreground shrink-0">{log.timestamp}</span>
-                  <span className={`${getTypeColor(log.type)} shrink-0`}>{getTypePrefix(log.type)}</span>
-                </div>
-                <p className={`${getTypeColor(log.type)} mt-0.5 break-words`}>
-                  {log.message.length > 150 ? log.message.slice(0, 150) + "..." : log.message}
-                </p>
-              </motion.div>
-              );
-            })}
+                );
+              })
+            )}
           </AnimatePresence>
         </div>
       </div>
 
-      {/* Command input - functional */}
-      <div className="mt-3 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1 focus-within:border-cyan/50 transition-colors">
-        <span className="text-cyan text-xs font-mono">&gt;</span>
+      {/* Command input */}
+      <div className="mt-2 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1 focus-within:border-cyan/50 transition-colors">
+        <span className="text-cyan text-[10px] font-mono">&gt;</span>
         <input
           type="text"
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           onKeyDown={handleCommand}
           placeholder="CLEAR | EMERGENCY 01 | SCAN"
-          className="flex-1 bg-transparent text-xs font-mono text-cyan placeholder:text-muted-foreground/50 focus:outline-none"
+          className="flex-1 bg-transparent text-[10px] font-mono text-cyan placeholder:text-muted-foreground/50 focus:outline-none"
         />
       </div>
 
@@ -244,7 +310,7 @@ const CommsPanel = () => {
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`mt-1 text-[10px] font-mono ${commandFeedback.startsWith("✓") ? "text-cyan" : "text-ember"}`}
+            className={`mt-1 text-[9px] font-mono ${commandFeedback.startsWith("✓") ? "text-cyan" : "text-ember"}`}
           >
             {commandFeedback}
           </motion.div>
@@ -252,16 +318,16 @@ const CommsPanel = () => {
       </AnimatePresence>
 
       {/* Live voice waveform simulation */}
-      <div className="flex items-center gap-2 mt-3 px-2 py-1.5 bg-obsidian/50 rounded border border-cyan/10">
+      <div className="flex items-center gap-2 mt-2 px-2 py-1 bg-obsidian/50 rounded border border-cyan/10">
         <Radio className="w-3 h-3 text-cyan/60" />
-        <span className="text-[9px] font-mono text-muted-foreground">COMMS</span>
+        <span className="text-[8px] font-mono text-muted-foreground">COMMS</span>
         <div className="flex items-center gap-0.5 ml-auto">
-          {[...Array(12)].map((_, i) => (
+          {[...Array(10)].map((_, i) => (
             <motion.div
               key={i}
               className="w-0.5 bg-cyan/60 rounded-full"
               animate={{
-                height: [3, Math.random() * 10 + 4, 3],
+                height: [2, Math.random() * 8 + 3, 2],
               }}
               transition={{
                 duration: 0.3 + Math.random() * 0.3,
@@ -274,16 +340,16 @@ const CommsPanel = () => {
       </div>
 
       {/* Quick stats */}
-      <div className="flex gap-2 mt-3">
-        <div className="flex-1 bg-obsidian/50 rounded p-2 border border-cyan/10 text-center">
-          <p className="text-[9px] font-mono text-muted-foreground">ALERTS</p>
-          <p className="text-ember font-orbitron font-bold text-sm">
+      <div className="flex gap-2 mt-2">
+        <div className="flex-1 bg-obsidian/50 rounded p-1.5 border border-cyan/10 text-center">
+          <p className="text-[8px] font-mono text-muted-foreground">ALERTS</p>
+          <p className="text-ember font-orbitron font-bold text-xs">
             {logs.filter(l => l.type === "alert" || l.type === "critical").length}
           </p>
         </div>
-        <div className="flex-1 bg-obsidian/50 rounded p-2 border border-cyan/10 text-center">
-          <p className="text-[9px] font-mono text-muted-foreground">DETECTIONS</p>
-          <p className="text-cyan font-orbitron font-bold text-sm">
+        <div className="flex-1 bg-obsidian/50 rounded p-1.5 border border-cyan/10 text-center">
+          <p className="text-[8px] font-mono text-muted-foreground">DETECTIONS</p>
+          <p className="text-cyan font-orbitron font-bold text-xs">
             {logs.filter(l => l.type === "detection").length}
           </p>
         </div>

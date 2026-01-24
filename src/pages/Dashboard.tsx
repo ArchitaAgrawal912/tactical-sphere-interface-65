@@ -53,10 +53,12 @@ const Dashboard = () => {
 
   const handleAlertsClick = () => {
     scrollToLatestAlert();
-    // If there's a critical/high incident without an active protocol, activate it
-    const unhandledIncident = incidents.find(i => !i.resolved && (i.severity === "critical" || i.severity === "high"));
-    if (unhandledIncident && !activeProtocol) {
-      activateProtocol(unhandledIncident);
+    // Find the most recent critical/high incident
+    const latestCriticalIncident = incidents.find(i => !i.resolved && (i.severity === "critical" || i.severity === "high"));
+    
+    if (latestCriticalIncident) {
+      // Always update to the latest incident, even if protocol is open
+      activateProtocol(latestCriticalIncident);
     }
   };
 
