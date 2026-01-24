@@ -162,12 +162,12 @@ const CommsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-bl p-3 w-full"
+      className="glass-panel clip-corner-bl p-3 w-full h-full flex flex-col"
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.4 }}
     >
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-2 shrink-0">
         <Terminal className="w-4 h-4 text-cyan" />
         <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">AI Detection Log</span>
         <div className="ml-auto flex items-center gap-1">
@@ -180,13 +180,12 @@ const CommsPanel = () => {
         </div>
       </div>
 
-      {/* Terminal output with fixed scrolling */}
+      {/* Terminal output with enhanced scrolling - fills available space */}
       <div 
         ref={scrollRef}
-        className="max-h-[200px] overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 scrollbar-thin"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,242,255,0.3) transparent' }}
+        className="flex-1 min-h-0 max-h-[280px] overflow-y-auto overflow-x-hidden bg-obsidian rounded border border-cyan/10 scrollbar-thin"
       >
-        <div className="p-2 pb-10 space-y-2">
+        <div className="p-2 pb-[50px] space-y-2">
           <AnimatePresence mode="popLayout">
             {logs.length === 0 ? (
               <motion.div
@@ -291,7 +290,7 @@ const CommsPanel = () => {
       </div>
 
       {/* Command input */}
-      <div className="mt-2 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1 focus-within:border-cyan/50 transition-colors">
+      <div className="mt-2 flex items-center gap-2 bg-obsidian border border-cyan/20 rounded px-2 py-1 focus-within:border-cyan/50 transition-colors shrink-0">
         <span className="text-cyan text-[10px] font-mono">&gt;</span>
         <input
           type="text"
@@ -318,7 +317,7 @@ const CommsPanel = () => {
       </AnimatePresence>
 
       {/* Live voice waveform simulation */}
-      <div className="flex items-center gap-2 mt-2 px-2 py-1 bg-obsidian/50 rounded border border-cyan/10">
+      <div className="flex items-center gap-2 mt-2 px-2 py-1 bg-obsidian/50 rounded border border-cyan/10 shrink-0">
         <Radio className="w-3 h-3 text-cyan/60" />
         <span className="text-[8px] font-mono text-muted-foreground">COMMS</span>
         <div className="flex items-center gap-0.5 ml-auto">
@@ -340,7 +339,7 @@ const CommsPanel = () => {
       </div>
 
       {/* Quick stats */}
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-2 shrink-0">
         <div className="flex-1 bg-obsidian/50 rounded p-1.5 border border-cyan/10 text-center">
           <p className="text-[8px] font-mono text-muted-foreground">ALERTS</p>
           <p className="text-ember font-orbitron font-bold text-xs">

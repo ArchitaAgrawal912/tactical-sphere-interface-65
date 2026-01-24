@@ -8,7 +8,7 @@ import MetricsPanel from "@/components/dashboard/MetricsPanel";
 import ResponseProtocolPanel from "@/components/dashboard/ResponseProtocolPanel";
 import SystemsNominalPanel from "@/components/dashboard/SystemsNominalPanel";
 import Scanlines from "@/components/Scanlines";
-import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Shield, Users, Bell, Play, Pause, RotateCcw, Eye, EyeOff, Cpu, Wifi } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
 
@@ -111,7 +111,27 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="h-4 w-px bg-cyan/30 hidden sm:block" />
-            <span className="hud-label hidden md:block text-[10px]">Industrial Safety Command</span>
+            {/* AI Status Indicator */}
+            <div className="hidden md:flex items-center gap-2 px-2 py-1 rounded border border-cyan/20 bg-cyan/5">
+              <motion.div
+                className="flex items-center gap-1"
+                animate={{ opacity: [1, 0.6, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <Cpu className="w-3 h-3 text-cyan" />
+                <span className="text-[9px] font-mono text-cyan">AI: ONLINE</span>
+              </motion.div>
+              <div className="h-3 w-px bg-cyan/30" />
+              <div className="flex items-center gap-1">
+                <motion.div
+                  className="w-1.5 h-1.5 bg-cyan rounded-full"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+                <Wifi className="w-3 h-3 text-cyan/70" />
+                <span className="text-[9px] font-mono text-muted-foreground">SIGNAL: STABLE</span>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -199,24 +219,24 @@ const Dashboard = () => {
         </div>
       </motion.header>
 
-      {/* Main dashboard layout - Bento Grid with Fixed Width Panels */}
+      {/* Main dashboard layout - Command-Wing Grid with Fixed 350px Panels */}
       <main className="pt-14 min-h-screen relative">
-        {/* Desktop Bento Layout - Fixed 320px side columns */}
-        <div className="hidden xl:grid xl:grid-cols-[320px_1fr_320px] gap-6 p-6 h-[calc(100vh-56px)]">
-          {/* Left column - Vitals (top) and Comms (bottom) */}
-          <div className="flex flex-col gap-4 h-full overflow-hidden">
+        {/* Desktop Command-Wing Layout - Fixed 350px side columns */}
+        <div className="hidden xl:grid xl:grid-cols-[350px_1fr_350px] gap-4 p-4 h-[calc(100vh-56px)]">
+          {/* Left Wing (Panel A) - Vitals (top) and AI Detection Log (bottom) */}
+          <div className="flex flex-col gap-4 h-full min-w-0">
             <div className="shrink-0">
               <VitalsPanel />
             </div>
-            <div className="shrink-0 mt-auto">
+            <div className="flex-1 min-h-0">
               <CommsPanel />
             </div>
           </div>
 
-          {/* Center - Tactical Grid (lower z-index, draggable) */}
-          <div className="flex items-center justify-center relative z-0">
+          {/* Center Stage - Tactical Sphere (lower z-index, draggable/zoomable) */}
+          <div className="flex items-center justify-center relative z-0 min-w-0">
             <motion.div
-              className="w-full max-w-[580px] aspect-square"
+              className="w-full max-w-[600px] aspect-square"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
@@ -225,12 +245,13 @@ const Dashboard = () => {
             </motion.div>
           </div>
 
-          {/* Right column - Live Feed (top) and Protocol/Metrics (bottom) */}
-          <div className="flex flex-col gap-4 h-full overflow-hidden">
+          {/* Right Wing (Panel B) - Live Feed (top) and PPE/Protocol stack (bottom) */}
+          <div className="flex flex-col gap-4 h-full min-w-0">
             <div className="shrink-0">
               <LiveStreamPanel />
             </div>
-            <div className="flex-1 overflow-y-auto">
+            {/* Protocol/Nominal Panel - Auto-docks when critical alert arrives */}
+            <div className="shrink-0">
               <AnimatePresence mode="wait">
                 {activeProtocol ? (
                   <ResponseProtocolPanel key="protocol" />
@@ -239,23 +260,27 @@ const Dashboard = () => {
                 )}
               </AnimatePresence>
             </div>
-            {/* PPE Metrics - always visible below protocol */}
+            {/* PPE Metrics - always visible */}
             <div className="shrink-0">
               <MetricsPanel />
             </div>
           </div>
         </div>
 
-        {/* Tablet/Large screen layout - Fixed 280px side columns */}
-        <div className="hidden lg:grid xl:hidden lg:grid-cols-[280px_1fr_280px] gap-4 p-4 h-[calc(100vh-56px)]">
+        {/* Tablet/Large screen layout - Fixed 300px side columns */}
+        <div className="hidden lg:grid xl:hidden lg:grid-cols-[300px_1fr_300px] gap-4 p-4 h-[calc(100vh-56px)]">
           {/* Left column */}
-          <div className="flex flex-col gap-4 overflow-y-auto">
-            <VitalsPanel />
-            <CommsPanel />
+          <div className="flex flex-col gap-4 h-full min-w-0">
+            <div className="shrink-0">
+              <VitalsPanel />
+            </div>
+            <div className="flex-1 min-h-0">
+              <CommsPanel />
+            </div>
           </div>
 
           {/* Center - Tactical Grid */}
-          <div className="flex items-center justify-center relative z-0">
+          <div className="flex items-center justify-center relative z-0 min-w-0">
             <motion.div
               className="w-full max-w-[480px] aspect-square"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -267,16 +292,22 @@ const Dashboard = () => {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-col gap-4 overflow-y-auto">
-            <LiveStreamPanel />
-            <AnimatePresence mode="wait">
-              {activeProtocol ? (
-                <ResponseProtocolPanel key="protocol" />
-              ) : (
-                <SystemsNominalPanel key="nominal" />
-              )}
-            </AnimatePresence>
-            <MetricsPanel />
+          <div className="flex flex-col gap-4 h-full min-w-0">
+            <div className="shrink-0">
+              <LiveStreamPanel />
+            </div>
+            <div className="shrink-0">
+              <AnimatePresence mode="wait">
+                {activeProtocol ? (
+                  <ResponseProtocolPanel key="protocol" />
+                ) : (
+                  <SystemsNominalPanel key="nominal" />
+                )}
+              </AnimatePresence>
+            </div>
+            <div className="shrink-0">
+              <MetricsPanel />
+            </div>
           </div>
         </div>
 
