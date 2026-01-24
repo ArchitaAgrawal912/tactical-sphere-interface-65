@@ -18,6 +18,7 @@ import {
   Zap
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
+import { broadcastIncident, broadcastMessage as broadcastMsgToTabs } from "@/hooks/useCrossTabSync";
 
 // Haptic feedback helper
 const triggerHaptic = (pattern: "light" | "medium" | "heavy" = "medium") => {
@@ -33,7 +34,6 @@ const triggerHaptic = (pattern: "light" | "medium" | "heavy" = "medium") => {
 
 const SiteCentre = () => {
   const { 
-    triggerManualIncident, 
     addLog, 
     workers,
     isRunning,
@@ -44,7 +44,7 @@ const SiteCentre = () => {
     addIncident,
   } = useSimulationStore();
 
-  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastMsg, setBroadcastMsg] = useState("");
   const [connectionLatency] = useState(Math.floor(Math.random() * 15) + 8);
   const [lastAction, setLastAction] = useState<string | null>(null);
 
@@ -54,20 +54,50 @@ const SiteCentre = () => {
     return now.toLocaleTimeString("en-US", { hour12: false });
   };
 
-  // Trigger fall incident
+  // Trigger fall incident with cross-tab sync
   const handleTriggerFall = useCallback(() => {
     triggerHaptic("heavy");
-    triggerManualIncident("W-004", "fall");
-    setLastAction("FALL DETECTED - W-004");
     
-    addLog({
+    const worker = workers.find(w => w.id === "W-004") || workers[3];
+    const incident = {
+      id: `incident-${Date.now()}`,
+      workerId: "W-004",
+      workerName: worker?.name || "Marcus Chen",
+      type: "fall" as const,
+      severity: "critical" as const,
+      timestamp: Date.now(),
+      position: worker?.position || { x: 0, y: 0 },
+      resolved: false,
+      aiAnalysis: `CRITICAL: AI Analysis detected sudden vertical acceleration change for W-004. High probability of slip-and-fall incident. GPS coordinates locked. Emergency response required.`,
+    };
+    
+    const log = {
       timestamp: formatTimestamp(),
-      type: "critical",
-      message: "⚠️ FIELD TRIGGER: Fall detection activated by Site Supervisor. Worker W-004 requires immediate assistance.",
+      type: "critical" as const,
+      message: incident.aiAnalysis,
       workerId: "W-004",
       priority: 100,
+      incident,
+    };
+    
+    // Update local state
+    addIncident(incident);
+    addLog(log);
+    updateWorker("W-004", { status: "danger" as const });
+    triggerGlitch();
+    triggerViolationFlash();
+    
+    // Broadcast to other tabs (Dashboard)
+    broadcastIncident({
+      incident,
+      log,
+      workerUpdate: { id: "W-004", updates: { status: "danger" } },
+      triggerGlitch: true,
+      triggerViolationFlash: true,
     });
-  }, [triggerManualIncident, addLog]);
+    
+    setLastAction("FALL DETECTED - W-004");
+  }, [workers, addIncident, addLog, updateWorker, triggerGlitch, triggerViolationFlash]);
 
   // Trigger zone breach
   const handleZoneBreach = useCallback(() => {
@@ -104,6 +134,20 @@ const SiteCentre = () => {
       
       triggerViolationFlash();
       setLastAction(`ZONE BREACH - ${worker.id}`);
+      // Broadcast to other tabs
+      broadcastIncident({
+        incident,
+        log: {
+          timestamp: formatTimestamp(),
+          type: "alert" as const,
+          message: incident.aiAnalysis,
+          workerId: worker.id,
+          priority: 85,
+          incident,
+        },
+        workerUpdate: { id: worker.id, updates: { inRestrictedZone: true, status: "warning" } },
+        triggerViolationFlash: true,
+      });
     }
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
@@ -143,6 +187,20 @@ const SiteCentre = () => {
     
     triggerViolationFlash();
     setLastAction(`PPE ERROR - ${randomWorker.id}`);
+    // Broadcast to other tabs
+    broadcastIncident({
+      incident,
+      log: {
+        timestamp: formatTimestamp(),
+        type: "alert" as const,
+        message: incident.aiAnalysis,
+        workerId: randomWorker.id,
+        priority: 75,
+        incident,
+      },
+      workerUpdate: { id: randomWorker.id, updates: { ppe: Math.max(30, randomWorker.ppe - 35), status: "warning" } },
+      triggerViolationFlash: true,
+    });
   }, [workers, updateWorker, addIncident, addLog, triggerViolationFlash]);
 
   // Trigger gas leak
@@ -179,23 +237,44 @@ const SiteCentre = () => {
     triggerGlitch();
     triggerViolationFlash();
     setLastAction("GAS LEAK - SECTOR ALPHA");
+    // Broadcast to other tabs
+    broadcastIncident({
+      incident,
+      log: {
+        timestamp: formatTimestamp(),
+        type: "critical" as const,
+        message: incident.aiAnalysis,
+        priority: 100,
+        incident,
+      },
+      workerUpdate: { id: "W-001", updates: { status: "danger" } },
+      triggerGlitch: true,
+      triggerViolationFlash: true,
+    });
   }, [workers, updateWorker, addIncident, addLog, triggerGlitch, triggerViolationFlash]);
 
-  // Send broadcast message
+  // Send broadcast message with cross-tab sync
   const handleBroadcast = useCallback(() => {
-    if (!broadcastMessage.trim()) return;
+    if (!broadcastMsg.trim()) return;
     
     triggerHaptic("light");
-    addLog({
-      timestamp: formatTimestamp(),
-      type: "info",
-      message: `📡 FIELD BROADCAST: "${broadcastMessage}"`,
-      priority: 60,
-    });
     
-    setBroadcastMessage("");
+    const log = {
+      timestamp: formatTimestamp(),
+      type: "info" as const,
+      message: `📡 FIELD BROADCAST: "${broadcastMsg}"`,
+      priority: 60,
+    };
+    
+    // Update local state
+    addLog(log);
+    
+    // Broadcast to other tabs
+    broadcastMsgToTabs(log);
+    
+    setBroadcastMsg("");
     setLastAction("BROADCAST SENT");
-  }, [broadcastMessage, addLog]);
+  }, [broadcastMsg, addLog]);
 
   return (
     <div className="min-h-screen bg-obsidian text-foreground">
@@ -386,15 +465,15 @@ const SiteCentre = () => {
           <div className="flex gap-2">
             <input
               type="text"
-              value={broadcastMessage}
-              onChange={(e) => setBroadcastMessage(e.target.value)}
+              value={broadcastMsg}
+              onChange={(e) => setBroadcastMsg(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleBroadcast()}
               placeholder="Type message to Control Office..."
               className="flex-1 bg-obsidian border-2 border-cyan/30 rounded-lg px-4 py-3 text-sm font-mono text-cyan placeholder:text-muted-foreground/50 focus:outline-none focus:border-cyan transition-colors"
             />
             <motion.button
               onClick={handleBroadcast}
-              disabled={!broadcastMessage.trim()}
+              disabled={!broadcastMsg.trim()}
               className="px-4 bg-cyan/20 border-2 border-cyan rounded-lg text-cyan hover:bg-cyan/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               whileTap={{ scale: 0.95 }}
             >
