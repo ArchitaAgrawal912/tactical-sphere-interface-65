@@ -51,13 +51,13 @@ const VitalsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-tl p-3 w-full"
+      className="glass-panel clip-corner-tl p-3 w-full h-full flex flex-col overflow-hidden"
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.2 }}
     >
-      {/* Header Row */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Header Row - Fixed */}
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
           <Activity className="w-3.5 h-3.5 text-cyan" />
           <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">System Vitals</span>
@@ -74,40 +74,42 @@ const VitalsPanel = () => {
         </div>
       </div>
 
-      {/* Selected Worker Badge - compact */}
-      <AnimatePresence mode="wait">
-        {isShowingWorker ? (
-          <motion.div
-            key="worker-header"
-            className="mb-2 px-2 py-1 bg-cyan/10 border border-cyan/30 rounded flex items-center gap-2"
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-          >
-            <User className="w-3 h-3 text-cyan" />
-            <span className="text-[10px] font-mono text-cyan font-bold">{focusedWorker.id}</span>
-            <span className="text-[9px] font-mono text-muted-foreground ml-1">{focusedWorker.name}</span>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pr-1">
+        {/* Selected Worker Badge - compact */}
+        <AnimatePresence mode="wait">
+          {isShowingWorker ? (
             <motion.div
-              className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan"
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="global-header"
-            className="mb-2 px-2 py-1 bg-obsidian-light/50 border border-cyan/10 rounded"
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-          >
-            <span className="text-[9px] font-mono text-muted-foreground">GLOBAL AVERAGES • {workers.length} TRACKED</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              key="worker-header"
+              className="mb-2 px-2 py-1 bg-cyan/10 border border-cyan/30 rounded flex items-center gap-2"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+            >
+              <User className="w-3 h-3 text-cyan" />
+              <span className="text-[10px] font-mono text-cyan font-bold">{focusedWorker.id}</span>
+              <span className="text-[9px] font-mono text-muted-foreground ml-1">{focusedWorker.name}</span>
+              <motion.div
+                className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan"
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="global-header"
+              className="mb-2 px-2 py-1 bg-obsidian-light/50 border border-cyan/10 rounded"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+            >
+              <span className="text-[9px] font-mono text-muted-foreground">GLOBAL AVERAGES • {workers.length} TRACKED</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      {/* Compact 2x2 Grid for Core Stats */}
-      <div className="grid grid-cols-2 gap-2 mb-2">
+        {/* Compact 2x2 Grid for Core Stats */}
+        <div className="grid grid-cols-2 gap-2 mb-2">
         {/* AI Core Temp */}
         <div className="bg-obsidian/50 rounded p-1.5 border border-cyan/10">
           <div className="flex items-center gap-1 mb-1">
@@ -206,25 +208,26 @@ const VitalsPanel = () => {
         </div>
       </div>
 
-      {/* Worker-specific PPE score - compact inline */}
-      <AnimatePresence>
-        {isShowingWorker && focusedWorker && (
-          <motion.div 
-            className="mt-2 flex items-center justify-between px-2 py-1 bg-obsidian/50 rounded border border-cyan/10"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-          >
-            <span className="text-[9px] font-mono text-muted-foreground">PPE COMPLIANCE</span>
-            <span className={`font-mono text-xs font-bold ${
-              focusedWorker.ppe >= 90 ? 'text-cyan' : 
-              focusedWorker.ppe >= 70 ? 'text-ember' : 'text-danger'
-            }`}>
-              {focusedWorker.ppe}%
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Worker-specific PPE score - compact inline */}
+        <AnimatePresence>
+          {isShowingWorker && focusedWorker && (
+            <motion.div 
+              className="mt-2 flex items-center justify-between px-2 py-1 bg-obsidian/50 rounded border border-cyan/10"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <span className="text-[9px] font-mono text-muted-foreground">PPE COMPLIANCE</span>
+              <span className={`font-mono text-xs font-bold ${
+                focusedWorker.ppe >= 90 ? 'text-cyan' : 
+                focusedWorker.ppe >= 70 ? 'text-ember' : 'text-danger'
+              }`}>
+                {focusedWorker.ppe}%
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 };
