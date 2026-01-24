@@ -1,37 +1,18 @@
-import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
-
-interface WorkerNode {
-  id: string;
-  name: string;
-  status: "safe" | "warning" | "danger";
-  position: { x: number; y: number };
-  ppe: number;
-  zone: string;
-}
-
-const mockWorkers: WorkerNode[] = [
-  { id: "W-001", name: "Chen, Marcus", status: "safe", position: { x: 35, y: 30 }, ppe: 100, zone: "Alpha-7" },
-  { id: "W-002", name: "Rodriguez, Ana", status: "warning", position: { x: 65, y: 45 }, ppe: 85, zone: "Beta-3" },
-  { id: "W-003", name: "Kim, David", status: "safe", position: { x: 50, y: 65 }, ppe: 100, zone: "Alpha-7" },
-  { id: "W-004", name: "Okonkwo, Emeka", status: "danger", position: { x: 25, y: 55 }, ppe: 45, zone: "Gamma-1" },
-  { id: "W-005", name: "Petrov, Yuri", status: "safe", position: { x: 75, y: 70 }, ppe: 100, zone: "Delta-9" },
-  { id: "W-006", name: "Johnson, Sarah", status: "warning", position: { x: 40, y: 80 }, ppe: 72, zone: "Beta-3" },
-];
+import { motion, AnimatePresence } from "framer-motion";
+import { useSimulationStore } from "@/store/simulationStore";
+import { WorkerTelemetry } from "@/utils/simEngine";
 
 const HexGrid = () => {
-  const [hoveredWorker, setHoveredWorker] = useState<WorkerNode | null>(null);
-  const [pulseKey, setPulseKey] = useState(0);
+  const { 
+    workers, 
+    focusedWorkerId, 
+    setFocusedWorkerId,
+    isWarping,
+    zoomLevel,
+    activeIncident 
+  } = useSimulationStore();
 
-  // Trigger pulse every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPulseKey(prev => prev + 1);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const getStatusColor = (status: WorkerNode["status"]) => {
+  const getStatusColor = (status: WorkerTelemetry["status"]) => {
     switch (status) {
       case "safe": return "bg-cyan";
       case "warning": return "bg-ember";
@@ -39,16 +20,58 @@ const HexGrid = () => {
     }
   };
 
-  const getStatusGlow = (status: WorkerNode["status"]) => {
+  const getStatusGlow = (status: WorkerTelemetry["status"], isFocused: boolean) => {
+    const intensity = isFocused ? "30px" : "20px";
     switch (status) {
-      case "safe": return "shadow-[0_0_20px_rgba(0,242,255,0.9)]";
-      case "warning": return "shadow-[0_0_20px_rgba(255,191,0,0.9)]";
-      case "danger": return "shadow-[0_0_20px_rgba(255,0,0,0.9)]";
+      case "safe": return `shadow-[0_0_${intensity}_rgba(0,242,255,0.9)]`;
+      case "warning": return `shadow-[0_0_${intensity}_rgba(255,191,0,0.9)]`;
+      case "danger": return `shadow-[0_0_${intensity}_rgba(255,0,0,0.9)]`;
     }
   };
 
+  const focusedWorker = workers.find(w => w.id === focusedWorkerId);
+
   return (
-    <div className="relative w-full aspect-square mx-auto">
+    <motion.div 
+      className="relative w-full aspect-square mx-auto"
+      animate={{
+        scale: zoomLevel,
+        x: focusedWorker ? `${(50 - focusedWorker.position.x) * 3}%` : 0,
+        y: focusedWorker ? `${(50 - focusedWorker.position.y) * 3}%` : 0,
+      }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 100, 
+        damping: 20,
+        duration: 0.8 
+      }}
+    >
+      {/* Warp effect overlay */}
+      <AnimatePresence>
+        {isWarping && (
+          <motion.div
+            className="absolute inset-0 z-30 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-gradient-radial from-cyan/20 via-transparent to-transparent animate-pulse" />
+            {[...Array(8)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute top-1/2 left-1/2 w-full h-0.5 origin-left"
+                style={{ rotate: `${i * 45}deg` }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: [0, 1, 0] }}
+                transition={{ duration: 0.5, delay: i * 0.05 }}
+              >
+                <div className="w-full h-full bg-gradient-to-r from-cyan via-cyan-glow to-transparent" />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Glow backdrop */}
       <div className="absolute inset-0 rounded-full bg-gradient-radial from-cyan/10 via-transparent to-transparent" />
       
@@ -67,6 +90,30 @@ const HexGrid = () => {
       <div className="absolute inset-12 rounded-full border border-cyan/20" />
       <div className="absolute inset-20 rounded-full border border-cyan/15" />
       <div className="absolute inset-28 rounded-full border border-cyan/10" />
+
+      {/* Restricted zones visualization */}
+      <div 
+        className="absolute rounded-full border border-danger/30 bg-danger/5"
+        style={{ 
+          left: "5%", top: "5%", 
+          width: "30%", height: "30%",
+        }}
+      >
+        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-danger/50 uppercase">
+          Restricted
+        </span>
+      </div>
+      <div 
+        className="absolute rounded-full border border-danger/30 bg-danger/5"
+        style={{ 
+          right: "3%", bottom: "10%", 
+          width: "24%", height: "24%",
+        }}
+      >
+        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-danger/50 uppercase">
+          Restricted
+        </span>
+      </div>
       
       {/* Hex grid pattern overlay */}
       <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">
@@ -87,28 +134,22 @@ const HexGrid = () => {
         <circle cx="50" cy="50" r="48" fill="url(#hexPattern)" />
       </svg>
 
-      {/* Sonar pulse effect */}
+      {/* Continuous sonar pulse */}
       <motion.div
-        key={pulseKey}
         className="absolute inset-0 rounded-full border-2 border-cyan"
-        initial={{ scale: 0.1, opacity: 0.8 }}
-        animate={{ scale: 1, opacity: 0 }}
-        transition={{ duration: 3, ease: "easeOut" }}
+        animate={{ scale: [0.1, 1], opacity: [0.8, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeOut" }}
         style={{ boxShadow: "0 0 20px rgba(0,242,255,0.5)" }}
       />
       <motion.div
-        key={`pulse2-${pulseKey}`}
         className="absolute inset-0 rounded-full border border-cyan/60"
-        initial={{ scale: 0.1, opacity: 0.6 }}
-        animate={{ scale: 1, opacity: 0 }}
-        transition={{ duration: 3, delay: 0.3, ease: "easeOut" }}
+        animate={{ scale: [0.1, 1], opacity: [0.6, 0] }}
+        transition={{ duration: 4, delay: 1, repeat: Infinity, ease: "easeOut" }}
       />
       <motion.div
-        key={`pulse3-${pulseKey}`}
         className="absolute inset-0 rounded-full border border-cyan/40"
-        initial={{ scale: 0.1, opacity: 0.4 }}
-        animate={{ scale: 1, opacity: 0 }}
-        transition={{ duration: 3, delay: 0.6, ease: "easeOut" }}
+        animate={{ scale: [0.1, 1], opacity: [0.4, 0] }}
+        transition={{ duration: 4, delay: 2, repeat: Infinity, ease: "easeOut" }}
       />
 
       {/* Grid lines */}
@@ -141,7 +182,7 @@ const HexGrid = () => {
         />
       </motion.div>
 
-      {/* Center point with pulsing glow */}
+      {/* Center point */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <motion.div
           className="w-6 h-6 bg-cyan rounded-full"
@@ -159,93 +200,186 @@ const HexGrid = () => {
       </div>
 
       {/* Worker nodes */}
-      {mockWorkers.map((worker, index) => (
-        <motion.div
-          key={worker.id}
-          className={`absolute cursor-pointer ${getStatusColor(worker.status)} rounded-full ${getStatusGlow(worker.status)}`}
-          style={{
-            left: `${worker.position.x}%`,
-            top: `${worker.position.y}%`,
-            width: hoveredWorker?.id === worker.id ? "18px" : "14px",
-            height: hoveredWorker?.id === worker.id ? "18px" : "14px",
-          }}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ 
-            scale: 1,
-            opacity: 1,
-            x: "-50%",
-            y: "-50%"
-          }}
-          whileHover={{ scale: 1.5 }}
-          onHoverStart={() => setHoveredWorker(worker)}
-          onHoverEnd={() => setHoveredWorker(null)}
-          transition={{ 
-            type: "spring", 
-            stiffness: 500, 
-            damping: 30,
-            delay: index * 0.1
-          }}
-        />
-      ))}
+      {workers.map((worker, index) => {
+        const isFocused = focusedWorkerId === worker.id;
+        const hasActiveIncident = activeIncident?.workerId === worker.id;
 
-      {/* Hovering data card */}
-      {hoveredWorker && (
-        <motion.div
-          className="absolute z-20 glass-panel p-4 min-w-[220px] glow-border-cyan"
-          style={{
-            left: `${Math.min(Math.max(hoveredWorker.position.x, 30), 70)}%`,
-            top: `${hoveredWorker.position.y > 50 ? hoveredWorker.position.y - 30 : hoveredWorker.position.y + 20}%`,
-          }}
-          initial={{ opacity: 0, scale: 0.9, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <motion.div 
-              className={`w-3 h-3 rounded-full ${getStatusColor(hoveredWorker.status)}`}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-            <span className="hud-label text-xs">{hoveredWorker.id}</span>
-          </div>
-          <p className="text-cyan font-orbitron text-sm font-bold">{hoveredWorker.name}</p>
-          <div className="mt-3 space-y-1.5 text-xs font-mono text-muted-foreground">
-            <div className="flex justify-between">
-              <span>Zone:</span>
-              <span className="text-cyan">{hoveredWorker.zone}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>PPE:</span>
-              <div className="flex items-center gap-2">
-                <div className="w-16 h-1.5 bg-obsidian-light rounded-full overflow-hidden">
-                  <motion.div 
-                    className={`h-full ${hoveredWorker.ppe >= 90 ? 'bg-cyan' : hoveredWorker.ppe >= 70 ? 'bg-ember' : 'bg-danger'}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${hoveredWorker.ppe}%` }}
+        return (
+          <motion.div
+            key={worker.id}
+            className="absolute cursor-pointer"
+            style={{
+              left: `${worker.position.x}%`,
+              top: `${worker.position.y}%`,
+            }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ 
+              scale: 1,
+              opacity: 1,
+              x: "-50%",
+              y: "-50%"
+            }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 300, 
+              damping: 25,
+              delay: index * 0.1
+            }}
+            onClick={() => setFocusedWorkerId(isFocused ? null : worker.id)}
+          >
+            {/* Status ring for focused/incident workers */}
+            <AnimatePresence>
+              {(isFocused || hasActiveIncident) && (
+                <motion.div
+                  className="absolute -inset-4"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                >
+                  <motion.div
+                    className={`w-full h-full rounded-full border-2 ${
+                      hasActiveIncident ? 'border-ember' : 'border-cyan'
+                    }`}
+                    animate={{ 
+                      rotate: 360,
+                      boxShadow: hasActiveIncident 
+                        ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
+                        : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
+                    }}
+                    transition={{ 
+                      rotate: { duration: 3, repeat: Infinity, ease: "linear" },
+                      boxShadow: { duration: 1, repeat: Infinity }
+                    }}
                   />
+                  {/* Corner markers */}
+                  {[0, 90, 180, 270].map((angle) => (
+                    <motion.div
+                      key={angle}
+                      className={`absolute w-2 h-2 ${hasActiveIncident ? 'bg-ember' : 'bg-cyan'}`}
+                      style={{
+                        top: "50%",
+                        left: "50%",
+                        transform: `rotate(${angle}deg) translateY(-20px) translateX(-50%)`,
+                      }}
+                      animate={{ opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 0.5, repeat: Infinity, delay: angle / 360 }}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Worker node dot */}
+            <motion.div
+              className={`rounded-full ${
+                hasActiveIncident ? 'bg-ember' : getStatusColor(worker.status)
+              } ${getStatusGlow(worker.status, isFocused)}`}
+              style={{
+                width: isFocused ? "20px" : "14px",
+                height: isFocused ? "20px" : "14px",
+              }}
+              animate={hasActiveIncident ? {
+                scale: [1, 1.3, 1],
+              } : {}}
+              transition={{ duration: 0.5, repeat: hasActiveIncident ? Infinity : 0 }}
+              whileHover={{ scale: 1.5 }}
+            />
+
+            {/* Worker ID label */}
+            <motion.div
+              className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isFocused ? 1 : 0.7 }}
+            >
+              <span className={`text-[9px] font-mono ${
+                hasActiveIncident ? 'text-ember' : 'text-cyan'
+              }`}>
+                {worker.id}
+              </span>
+            </motion.div>
+          </motion.div>
+        );
+      })}
+
+      {/* Focused worker data card */}
+      <AnimatePresence>
+        {focusedWorkerId && focusedWorker && (
+          <motion.div
+            className="absolute z-20 glass-panel p-4 min-w-[240px] glow-border-cyan"
+            style={{
+              left: `${Math.min(Math.max(focusedWorker.position.x, 30), 70)}%`,
+              top: `${focusedWorker.position.y > 50 ? focusedWorker.position.y - 35 : focusedWorker.position.y + 25}%`,
+            }}
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <motion.div 
+                className={`w-3 h-3 rounded-full ${getStatusColor(focusedWorker.status)}`}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+              <span className="hud-label text-xs">{focusedWorker.id}</span>
+              <span className={`ml-auto text-[10px] font-mono uppercase ${
+                focusedWorker.status === "safe" ? "text-cyan" :
+                focusedWorker.status === "warning" ? "text-ember" : "text-danger"
+              }`}>
+                {focusedWorker.status}
+              </span>
+            </div>
+            <p className="text-cyan font-orbitron text-sm font-bold">{focusedWorker.name}</p>
+            
+            <div className="mt-3 space-y-2 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Zone:</span>
+                <span className="text-cyan">{focusedWorker.zone}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">PPE:</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-obsidian-light rounded-full overflow-hidden">
+                    <motion.div 
+                      className={`h-full ${focusedWorker.ppe >= 90 ? 'bg-cyan' : focusedWorker.ppe >= 70 ? 'bg-ember' : 'bg-danger'}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${focusedWorker.ppe}%` }}
+                    />
+                  </div>
+                  <span className={focusedWorker.ppe >= 90 ? 'text-cyan' : focusedWorker.ppe >= 70 ? 'text-ember' : 'text-danger'}>
+                    {focusedWorker.ppe}%
+                  </span>
                 </div>
-                <span className={hoveredWorker.ppe >= 90 ? 'text-cyan' : hoveredWorker.ppe >= 70 ? 'text-ember' : 'text-danger'}>
-                  {hoveredWorker.ppe}%
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Heart Rate:</span>
+                <span className={focusedWorker.heartRate > 100 ? 'text-ember' : 'text-cyan'}>
+                  {focusedWorker.heartRate} BPM
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">O2 Level:</span>
+                <span className={focusedWorker.oxygenLevel < 94 ? 'text-ember' : 'text-cyan'}>
+                  {focusedWorker.oxygenLevel}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Coords:</span>
+                <span className="text-cyan">
+                  [{focusedWorker.position.x.toFixed(1)}, {focusedWorker.position.y.toFixed(1)}]
                 </span>
               </div>
             </div>
-            <div className="flex justify-between">
-              <span>Status:</span>
-              <span className={`uppercase font-bold ${
-                hoveredWorker.status === "safe" ? "text-cyan" :
-                hoveredWorker.status === "warning" ? "text-ember" : "text-danger"
-              }`}>{hoveredWorker.status}</span>
-            </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Zone labels */}
       <div className="absolute -top-2 left-1/2 -translate-x-1/2 hud-label text-cyan/70">SECTOR NORTH</div>
       <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 hud-label text-cyan/70">SECTOR SOUTH</div>
       <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 hud-label text-cyan/70 rotate-[-90deg]">WEST</div>
       <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 hud-label text-cyan/70 rotate-90">EAST</div>
-    </div>
+    </motion.div>
   );
 };
 
