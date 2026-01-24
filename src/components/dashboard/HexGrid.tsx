@@ -20,6 +20,9 @@ const HexGrid = () => {
     recenterMap,
     sonarPulseActive,
     activeProtocol,
+    isSiteWideEmergency,
+    affectedWorkerIds,
+    activeDangerZone,
   } = useSimulationStore();
 
   // Drag state for pan functionality
@@ -335,6 +338,78 @@ const HexGrid = () => {
         </motion.div>
       </button>
 
+      {/* Danger Zone Geofence - Red Pulsing Circle */}
+      <AnimatePresence>
+        {activeDangerZone && isSiteWideEmergency && (
+          <motion.div
+            className="absolute pointer-events-none"
+            style={{
+              left: `${activeDangerZone.x}%`,
+              top: `${activeDangerZone.y}%`,
+              width: `${activeDangerZone.radius * 2}%`,
+              height: `${activeDangerZone.radius * 2}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+          >
+            {/* Outer pulsing ring */}
+            <motion.div
+              className="absolute inset-0 rounded-full border-2 border-danger/60"
+              animate={{ 
+                scale: [1, 1.15, 1],
+                opacity: [0.6, 0.3, 0.6],
+              }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              style={{ boxShadow: "0 0 30px rgba(255,0,0,0.4)" }}
+            />
+            {/* Inner danger zone */}
+            <motion.div
+              className="absolute inset-2 rounded-full border-2 border-danger bg-danger/10"
+              animate={{ 
+                boxShadow: [
+                  "0 0 20px rgba(255,0,0,0.3), inset 0 0 20px rgba(255,0,0,0.1)",
+                  "0 0 40px rgba(255,0,0,0.5), inset 0 0 30px rgba(255,0,0,0.2)",
+                  "0 0 20px rgba(255,0,0,0.3), inset 0 0 20px rgba(255,0,0,0.1)"
+                ]
+              }}
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+            {/* HAZARD label */}
+            <motion.div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 bg-danger/30 border border-danger rounded"
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+            >
+              <span className="text-[8px] font-mono text-danger font-bold uppercase">
+                ⚠️ HAZARD ZONE
+              </span>
+            </motion.div>
+            {/* Rotating danger markers */}
+            <motion.div
+              className="absolute inset-0"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+            >
+              {[0, 60, 120, 180, 240, 300].map((angle) => (
+                <motion.div
+                  key={angle}
+                  className="absolute w-2 h-2 bg-danger rounded-full"
+                  style={{
+                    top: "50%",
+                    left: "50%",
+                    transform: `rotate(${angle}deg) translateY(-${activeDangerZone.radius}%) translateX(-50%)`,
+                  }}
+                  animate={{ opacity: [1, 0.3, 1], scale: [1, 0.8, 1] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: angle / 360 }}
+                />
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Worker nodes with smooth gliding transitions */}
       <AnimatePresence>
         {showWorkers && workers.map((worker, index) => {
@@ -343,6 +418,7 @@ const HexGrid = () => {
           const hasActiveProtocol = activeProtocol?.workerId === worker.id;
           const isInProtocol = hasActiveIncident || hasActiveProtocol;
           const isPPEFailing = isPPEHighlighted(worker);
+          const isAtRisk = isSiteWideEmergency && affectedWorkerIds.includes(worker.id);
 
           return (
             <motion.div
@@ -374,9 +450,25 @@ const HexGrid = () => {
               }}
               onClick={() => handleWorkerClick(worker)}
             >
+              {/* "AT RISK" pulsing red ring for site-wide emergency */}
+              <AnimatePresence>
+                {isAtRisk && !isFocused && (
+                  <motion.div
+                    className="absolute -inset-5"
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.3, 1] }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.8, repeat: Infinity }}
+                  >
+                    <div className="w-full h-full rounded-full border-3 border-danger" 
+                         style={{ boxShadow: "0 0 20px rgba(255,0,0,0.8)" }} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* PPE violation highlight ring */}
               <AnimatePresence>
-                {isPPEFailing && !isFocused && (
+                {isPPEFailing && !isFocused && !isAtRisk && (
                   <motion.div
                     className="absolute -inset-4"
                     initial={{ scale: 0.8, opacity: 0 }}
