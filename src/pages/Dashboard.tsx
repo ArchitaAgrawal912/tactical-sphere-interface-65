@@ -223,13 +223,13 @@ const Dashboard = () => {
       <main className="pt-14 h-screen overflow-hidden relative">
         {/* Desktop Command-Wing Layout - Fixed 350px side columns */}
         <div className="hidden xl:grid xl:grid-cols-[350px_1fr_350px] gap-4 p-4 h-[calc(100vh-56px)]">
-          {/* Left Wing (Panel A) - Compact Vitals (30%) and Expanded AI Log (70%) */}
+          {/* Left Wing (Panel A) - Elastic Vitals (30%) and Expanded AI Log (70%) */}
           <div className="flex flex-col gap-3 h-full min-w-0 overflow-hidden">
-            {/* Vitals - shrunk to ~30% */}
-            <div className="shrink-0 max-h-[30vh]">
+            {/* Vitals - elastic scroll, max 32% height */}
+            <div className="shrink-0 max-h-[32vh] min-h-[180px] overflow-hidden">
               <VitalsPanel />
             </div>
-            {/* AI Detection Log - expanded to fill remaining ~70% */}
+            {/* AI Detection Log - expanded to fill remaining ~68% */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <CommsPanel />
             </div>
@@ -272,9 +272,9 @@ const Dashboard = () => {
 
         {/* Tablet/Large screen layout - Fixed 300px side columns */}
         <div className="hidden lg:grid xl:hidden lg:grid-cols-[300px_1fr_300px] gap-4 p-4 h-[calc(100vh-56px)]">
-          {/* Left column - Compact Vitals (30%) and Expanded Log (70%) */}
+          {/* Left column - Elastic Vitals (32%) and Expanded Log (68%) */}
           <div className="flex flex-col gap-3 h-full min-w-0 overflow-hidden">
-            <div className="shrink-0 max-h-[30vh]">
+            <div className="shrink-0 max-h-[32vh] min-h-[180px] overflow-hidden">
               <VitalsPanel />
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
