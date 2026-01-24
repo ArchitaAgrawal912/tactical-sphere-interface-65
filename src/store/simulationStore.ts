@@ -205,7 +205,27 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         .sort((a, b) => b.priority - a.priority)
         .slice(0, 20),
     })),
-  clearLogs: () => set({ logs: [] }),
+  clearLogs: () => {
+    // Full system reset - clear logs, incidents, protocols, and worker statuses
+    set((state) => ({ 
+      logs: [],
+      incidents: [],
+      activeIncident: null,
+      activeProtocol: null,
+      executedActions: [],
+      focusedWorkerId: null,
+      trackedWorkerId: null,
+      isGlitching: false,
+      violationFlash: false,
+      highlightedPPEType: null,
+      // Reset all worker statuses to safe
+      workers: state.workers.map(w => ({
+        ...w,
+        status: "safe" as const,
+        inRestrictedZone: false,
+      })),
+    }));
+  },
 
   // Stream narrative log (called every 15 seconds)
   streamNarrativeLog: () => {
