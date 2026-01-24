@@ -18,7 +18,10 @@ export type BroadcastMessageType =
   | "WORKER_UPDATE"
   | "BROADCAST_MESSAGE"
   | "TRIGGER_EFFECT"
-  | "PROTOCOL_ACTIVATE";
+  | "PROTOCOL_ACTIVATE"
+  | "CLEAR_ALL"
+  | "PING"
+  | "PONG";
 
 export interface BroadcastPayload {
   type: BroadcastMessageType;

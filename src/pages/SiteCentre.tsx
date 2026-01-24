@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Radio, 
@@ -15,10 +15,12 @@ import {
   Activity,
   Volume2,
   Signal,
-  Zap
+  Zap,
+  CheckCircle2,
+  Link2
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
-import { broadcast } from "@/utils/broadcastChannel";
+import { broadcast, subscribe, BroadcastPayload } from "@/utils/broadcastChannel";
 
 // Haptic feedback helper
 
@@ -50,6 +52,41 @@ const SiteCentre = () => {
   const [connectionLatency] = useState(Math.floor(Math.random() * 15) + 8);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [transmittedButton, setTransmittedButton] = useState<string | null>(null);
+  const [isLinkActive, setIsLinkActive] = useState(true);
+  const [linkPulse, setLinkPulse] = useState(false);
+
+  // Listen for CLEAR_ALL from Control Office
+  useEffect(() => {
+    const unsubscribe = subscribe((message: BroadcastPayload) => {
+      if (message.source === "site-centre") return; // Ignore own messages
+      
+      switch (message.type) {
+        case "CLEAR_ALL":
+          // Reset local status badges
+          setLastAction(null);
+          setTransmittedButton(null);
+          // Pulse the link indicator to show sync received
+          setLinkPulse(true);
+          setTimeout(() => setLinkPulse(false), 1000);
+          break;
+        case "PONG":
+          setIsLinkActive(true);
+          break;
+      }
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Periodically pulse the link indicator to show connection is active
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLinkPulse(true);
+      setTimeout(() => setLinkPulse(false), 500);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Show "PACKET TRANSMITTED" visual feedback on button
   const showTransmitFeedback = (buttonId: string) => {
@@ -310,14 +347,28 @@ const SiteCentre = () => {
             <span className="text-xs font-mono">CONTROL OFFICE</span>
           </Link>
           
-          <div className="flex items-center gap-2">
+          {/* LIVE LINK: ACTIVE Indicator */}
+          <motion.div 
+            className={`flex items-center gap-2 px-3 py-1.5 rounded border transition-all ${
+              isLinkActive 
+                ? linkPulse 
+                  ? 'bg-success/20 border-success shadow-[0_0_15px_rgba(34,197,94,0.4)]'
+                  : 'bg-cyan/10 border-cyan/30'
+                : 'bg-danger/10 border-danger/30'
+            }`}
+            animate={linkPulse ? { scale: [1, 1.05, 1] } : {}}
+            transition={{ duration: 0.3 }}
+          >
             <motion.div
-              className="w-2 h-2 bg-cyan rounded-full"
+              className={`w-2 h-2 rounded-full ${isLinkActive ? 'bg-cyan' : 'bg-danger'}`}
               animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
               transition={{ duration: 1.5, repeat: Infinity }}
             />
-            <span className="text-[10px] font-mono text-cyan">LIVE SYNC</span>
-          </div>
+            <Link2 className={`w-3.5 h-3.5 ${isLinkActive ? 'text-cyan' : 'text-danger'}`} />
+            <span className={`text-[10px] font-mono font-bold ${isLinkActive ? 'text-cyan' : 'text-danger'}`}>
+              LIVE LINK: {isLinkActive ? 'ACTIVE' : 'OFFLINE'}
+            </span>
+          </motion.div>
         </div>
       </header>
 
