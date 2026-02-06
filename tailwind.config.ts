@@ -74,7 +74,7 @@ export default {
   				'sans-serif'
   			],
   			mono: [
-  				'Fira Code',
+  				'Space Mono',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
@@ -85,7 +85,7 @@ export default {
   				'monospace'
   			],
   			sans: [
-  				'Lato',
+  				'Inter',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',
@@ -98,7 +98,7 @@ export default {
   				'sans-serif'
   			],
   			serif: [
-  				'EB Garamond',
+  				'Lora',
   				'ui-serif',
   				'Georgia',
   				'Cambria',
@@ -149,7 +149,7 @@ export default {
   					opacity: '0.8'
   				}
   			},
-  			'sonar': {
+  			sonar: {
   				'0%': {
   					transform: 'scale(0.1)',
   					opacity: '0.8'
@@ -167,7 +167,7 @@ export default {
   					transform: 'translateY(-10px)'
   				}
   			},
-  			'scan': {
+  			scan: {
   				'0%': {
   					transform: 'translateY(-100%)'
   				},
@@ -175,15 +175,15 @@ export default {
   					transform: 'translateY(100%)'
   				}
   			},
-  			'typewriter': {
-  				'from': {
+  			typewriter: {
+  				from: {
   					width: '0'
   				},
-  				'to': {
+  				to: {
   					width: '100%'
   				}
   			},
-  			'blink': {
+  			blink: {
   				'0%, 100%': {
   					opacity: '1'
   				},
@@ -197,14 +197,14 @@ export default {
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
   			'node-pulse': 'node-pulse 2s ease-in-out infinite',
-  			'sonar': 'sonar 5s ease-out infinite',
+  			sonar: 'sonar 5s ease-out infinite',
   			'float-y': 'float-y 3s ease-in-out infinite',
-  			'scan': 'scan 3s linear infinite',
-  			'typewriter': 'typewriter 2s steps(40) forwards',
-  			'blink': 'blink 1s step-end infinite'
+  			scan: 'scan 3s linear infinite',
+  			typewriter: 'typewriter 2s steps(40) forwards',
+  			blink: 'blink 1s step-end infinite'
   		},
   		backdropBlur: {
-  			'glass': '20px'
+  			glass: '20px'
   		},
   		boxShadow: {
   			'2xs': 'var(--shadow-2xs)',
