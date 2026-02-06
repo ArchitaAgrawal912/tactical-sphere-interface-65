@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Shield, Eye, ChevronDown, Cpu, Radio, Activity, Users, Zap } from "lucide-react";
 
-const HeroHelmetDisplay = lazy(() => import("@/components/HeroHelmetDisplay"));
+const BlueprintHelmet = lazy(() => import("@/components/BlueprintHelmet"));
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -165,7 +165,7 @@ const Landing = () => {
                   </motion.div>
                 </motion.div>
 
-                {/* Right - 3D Helmet */}
+                {/* Right - Blueprint Helmet */}
                 <motion.div
                   className="relative flex items-center justify-center order-1 lg:order-2"
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -177,7 +177,7 @@ const Landing = () => {
                       <div className="w-16 h-16 border-2 border-teal/30 border-t-teal rounded-full animate-spin" />
                     </div>
                   }>
-                    <HeroHelmetDisplay />
+                    <BlueprintHelmet />
                   </Suspense>
                 </motion.div>
               </div>
