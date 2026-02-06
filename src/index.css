@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,76 +7,88 @@
 /* Custom scrollbar styling - Enhanced for visibility */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: hsl(186 100% 50% / 0.4) transparent;
+  scrollbar-color: hsl(174 62% 56% / 0.4) transparent;
 }
 .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-.scrollbar-thin::-webkit-scrollbar-track { background: hsl(220 10% 5% / 0.5); border-radius: 3px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: hsl(220 15% 8% / 0.5); border-radius: 3px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { 
-  background: linear-gradient(180deg, hsl(186 100% 50% / 0.5), hsl(186 100% 50% / 0.3)); 
+  background: linear-gradient(180deg, hsl(174 62% 56% / 0.5), hsl(174 62% 56% / 0.3)); 
   border-radius: 3px; 
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { 
-  background: linear-gradient(180deg, hsl(186 100% 50% / 0.7), hsl(186 100% 50% / 0.5)); 
+  background: linear-gradient(180deg, hsl(174 62% 56% / 0.7), hsl(174 62% 56% / 0.5)); 
 }
 
 /* HUD button hover glow */
 .hud-button { position: relative; }
-.hud-button:hover { box-shadow: 0 0 10px rgba(0, 242, 255, 0.3); }
+.hud-button:hover { box-shadow: 0 0 10px rgba(79, 209, 197, 0.3); }
 .hud-button:active { transform: scale(0.95); }
 
 @layer base {
   :root {
-    /* Obsidian & Ember Palette */
-    --background: 0 0% 1%;
-    --foreground: 180 100% 50%;
+    /* Professional Obsidian & Safety Palette */
+    --background: 220 20% 4%;
+    --foreground: 210 20% 98%;
     
-    --obsidian: 0 0% 1%;
-    --obsidian-light: 220 10% 8%;
-    --ember: 45 100% 50%;
-    --ember-glow: 45 100% 60%;
-    --cyan: 186 100% 50%;
-    --cyan-glow: 186 100% 70%;
-    --danger: 0 100% 50%;
-    --danger-glow: 0 100% 60%;
-    --success: 142 76% 36%;
-    --success-glow: 142 76% 50%;
+    --obsidian: 220 20% 4%;
+    --obsidian-light: 220 15% 13%;
+    --steel: 220 12% 18%;
     
-    --card: 220 10% 5%;
-    --card-foreground: 180 100% 50%;
+    /* Safety Teal - refined accent */
+    --teal: 174 62% 56%;
+    --teal-glow: 174 62% 66%;
     
-    --popover: 220 10% 5%;
-    --popover-foreground: 180 100% 50%;
+    /* Amber - professional warning */
+    --amber: 32 95% 65%;
+    --amber-glow: 32 95% 75%;
     
-    --primary: 186 100% 50%;
-    --primary-foreground: 0 0% 0%;
+    /* Legacy aliases for compatibility */
+    --ember: 32 95% 65%;
+    --ember-glow: 32 95% 75%;
+    --cyan: 174 62% 56%;
+    --cyan-glow: 174 62% 66%;
     
-    --secondary: 45 100% 50%;
-    --secondary-foreground: 0 0% 0%;
+    --danger: 0 72% 51%;
+    --danger-glow: 0 72% 61%;
+    --success: 160 60% 45%;
+    --success-glow: 160 60% 55%;
     
-    --muted: 220 10% 15%;
-    --muted-foreground: 180 30% 60%;
+    --card: 220 15% 8%;
+    --card-foreground: 210 20% 98%;
     
-    --accent: 45 100% 50%;
-    --accent-foreground: 0 0% 0%;
+    --popover: 220 15% 8%;
+    --popover-foreground: 210 20% 98%;
     
-    --destructive: 0 100% 50%;
+    --primary: 174 62% 56%;
+    --primary-foreground: 220 20% 4%;
+    
+    --secondary: 32 95% 65%;
+    --secondary-foreground: 220 20% 4%;
+    
+    --muted: 220 12% 18%;
+    --muted-foreground: 215 16% 55%;
+    
+    --accent: 174 62% 56%;
+    --accent-foreground: 220 20% 4%;
+    
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 180 100% 50%;
-    --input: 220 10% 15%;
-    --ring: 186 100% 50%;
+    --border: 215 16% 25%;
+    --input: 220 12% 18%;
+    --ring: 174 62% 56%;
     
-    --radius: 0.25rem;
+    --radius: 0.5rem;
     
-    /* Glass effect variables */
-    --glass-bg: rgba(0, 242, 255, 0.03);
-    --glass-border: rgba(0, 242, 255, 0.15);
+    /* Glass effect variables - subtle */
+    --glass-bg: rgba(79, 209, 197, 0.02);
+    --glass-border: rgba(79, 209, 197, 0.08);
     --glass-blur: 20px;
     
-    /* Glow effects */
-    --glow-cyan: 0 0 20px rgba(0, 242, 255, 0.5), 0 0 40px rgba(0, 242, 255, 0.3);
-    --glow-ember: 0 0 20px rgba(255, 191, 0, 0.5), 0 0 40px rgba(255, 191, 0, 0.3);
-    --glow-danger: 0 0 20px rgba(255, 0, 0, 0.5), 0 0 40px rgba(255, 0, 0, 0.3);
+    /* Glow effects - refined */
+    --glow-teal: 0 0 20px rgba(79, 209, 197, 0.3), 0 0 40px rgba(79, 209, 197, 0.15);
+    --glow-amber: 0 0 20px rgba(246, 173, 85, 0.3), 0 0 40px rgba(246, 173, 85, 0.15);
+    --glow-danger: 0 0 20px rgba(239, 68, 68, 0.3), 0 0 40px rgba(239, 68, 68, 0.15);
   }
 }
 
@@ -86,10 +98,10 @@
   }
   
   body {
-    @apply bg-obsidian text-foreground font-orbitron antialiased;
+    @apply bg-background text-foreground font-sans antialiased;
     background: 
-      radial-gradient(ellipse at 50% 50%, rgba(0, 242, 255, 0.03) 0%, transparent 50%),
-      hsl(var(--obsidian));
+      radial-gradient(ellipse at 50% 50%, rgba(79, 209, 197, 0.02) 0%, transparent 50%),
+      hsl(var(--background));
   }
   
   /* Custom scrollbar */
