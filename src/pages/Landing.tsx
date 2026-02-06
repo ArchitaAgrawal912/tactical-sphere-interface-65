@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Shield, Eye, ChevronDown } from "lucide-react";
-import HelmetIllustration from "@/components/HelmetIllustration";
+import helmetImage from "@/assets/helmet-hero.png";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -144,7 +144,30 @@ const Landing = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4, duration: 0.8 }}
                 >
-                  <HelmetIllustration />
+                  {/* Decorative arc */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-[400px] h-[400px] border border-cyan/20 rounded-full" />
+                    <div className="absolute w-[300px] h-[300px] border border-dashed border-cyan/10 rounded-full" />
+                  </div>
+                  
+                  {/* Helmet image */}
+                  <div className="relative z-10">
+                    <img 
+                      src={helmetImage} 
+                      alt="Guardian Module - Smart Safety Helmet" 
+                      className="w-full max-w-md object-contain drop-shadow-2xl"
+                    />
+                    {/* Label */}
+                    <motion.div 
+                      className="absolute -right-8 top-1/4 flex items-center gap-2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.8 }}
+                    >
+                      <div className="w-16 h-px bg-cyan/50" />
+                      <span className="text-xs font-mono text-cyan/70 whitespace-nowrap">Guardian Module</span>
+                    </motion.div>
+                  </div>
                 </motion.div>
               </div>
 
