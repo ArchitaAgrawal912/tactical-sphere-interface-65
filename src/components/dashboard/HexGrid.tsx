@@ -2,7 +2,19 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSimulationStore } from "@/store/simulationStore";
 import { WorkerTelemetry } from "@/utils/simEngine";
 import { RotateCcw } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
+
+// Calculate Euclidean distance between two positions
+const calculateDistance = (pos1: { x: number; y: number }, pos2: { x: number; y: number }) => {
+  return Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2));
+};
+
+// Calculate ETA based on distance (simulated: 1 unit = ~3 seconds)
+const calculateETA = (distance: number) => {
+  const seconds = Math.round(distance * 3);
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+};
 
 const HexGrid = () => {
   const { 
@@ -25,63 +37,68 @@ const HexGrid = () => {
     activeDangerZone,
   } = useSimulationStore();
 
-  // Drag state for pan functionality
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Calculate nearest responders for critical/warning workers
+  const nearestResponders = useMemo(() => {
+    const criticalWorker = workers.find(w => 
+      w.status === "danger" || w.status === "warning" || 
+      activeIncident?.workerId === w.id ||
+      activeProtocol?.workerId === w.id
+    );
+
+    if (!criticalWorker) return null;
+
+    const otherWorkers = workers
+      .filter(w => w.id !== criticalWorker.id && w.status === "safe")
+      .map(w => ({
+        worker: w,
+        distance: calculateDistance(criticalWorker.position, w.position),
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 2);
+
+    return {
+      victim: criticalWorker,
+      responders: otherWorkers.map((r, idx) => ({
+        ...r,
+        eta: calculateETA(r.distance),
+        label: `RESPONDER ${idx + 1}`,
+      })),
+    };
+  }, [workers, activeIncident, activeProtocol]);
+
   const getStatusColor = (worker: WorkerTelemetry) => {
-    // Safety Orange (#FF8C00) for workers in restricted zones
-    if (worker.inRestrictedZone) return "bg-[#FF8C00]";
+    if (worker.inRestrictedZone) return "bg-amber";
     switch (worker.status) {
-      case "safe": return "bg-cyan";
-      case "warning": return "bg-ember";
-      case "danger": return "bg-danger";
+      case "safe": return "bg-primary";
+      case "warning": return "bg-amber";
+      case "danger": return "bg-destructive";
     }
   };
 
-  const getStatusGlow = (worker: WorkerTelemetry, isFocused: boolean) => {
-    const intensity = isFocused ? "30px" : "20px";
-    if (worker.inRestrictedZone) {
-      return `shadow-[0_0_${intensity}_rgba(255,140,0,0.9)]`;
-    }
-    // Amber ring for elevated HR
-    if (worker.hrElevated) {
-      return `shadow-[0_0_${intensity}_rgba(255,191,0,0.9)]`;
-    }
-    switch (worker.status) {
-      case "safe": return `shadow-[0_0_${intensity}_rgba(0,242,255,0.9)]`;
-      case "warning": return `shadow-[0_0_${intensity}_rgba(255,191,0,0.9)]`;
-      case "danger": return `shadow-[0_0_${intensity}_rgba(255,0,0,0.9)]`;
-    }
-  };
-
-  // Check if worker is failing PPE compliance for highlighted type
   const isPPEHighlighted = (worker: WorkerTelemetry) => {
     if (!highlightedPPEType) return false;
-    // Simulate PPE type failures based on worker PPE score
     const threshold = highlightedPPEType === "helmet" ? 90 : highlightedPPEType === "vest" ? 80 : 70;
     return worker.ppe < threshold;
   };
 
   const handleWorkerClick = (worker: WorkerTelemetry) => {
-    if (isDragging) return; // Don't trigger click during drag
+    if (isDragging) return;
     
     const isFocused = focusedWorkerId === worker.id;
     if (isFocused) {
-      // Clicking focused worker recenters
       handleRecenter();
     } else {
       setIsWarping(true);
-      setZoomLevel(1.25); // Gentle zoom to avoid clipping
+      setZoomLevel(1.15);
       setFocusedWorkerId(worker.id);
       setTrackedWorkerId(worker.id);
-      setDragOffset({ x: 0, y: 0 }); // Reset drag on focus
-      setTimeout(() => setIsWarping(false), 800);
-      // Auto-reset zoom after 10 seconds
-      setTimeout(() => {
-        setZoomLevel(1);
-      }, 10000);
+      setDragOffset({ x: 0, y: 0 });
+      setTimeout(() => setIsWarping(false), 600);
+      setTimeout(() => setZoomLevel(1), 8000);
     }
   };
 
@@ -90,27 +107,24 @@ const HexGrid = () => {
     recenterMap();
   }, [recenterMap]);
 
-  // Handle wheel zoom with constraints
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newZoom = Math.max(0.5, Math.min(2.5, zoomLevel + delta));
+    const newZoom = Math.max(0.6, Math.min(2, zoomLevel + delta));
     setZoomLevel(newZoom);
   }, [zoomLevel, setZoomLevel]);
 
   const focusedWorker = workers.find(w => w.id === focusedWorkerId);
 
-  // Calculate camera offset to center on focused worker with clamping to prevent black screen
   const getCameraOffset = () => {
     if (!focusedWorker) return { x: dragOffset.x, y: dragOffset.y };
-    // Center the worker in viewport by calculating offset from center (50,50)
-    // Clamp the offset to prevent the grid from going off-screen
-    const rawOffsetX = (50 - focusedWorker.position.x) * 1.5 + dragOffset.x;
-    const rawOffsetY = (50 - focusedWorker.position.y) * 1.5 + dragOffset.y;
-    const maxOffset = 60; // Maximum offset percentage
-    const offsetX = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX));
-    const offsetY = Math.max(-maxOffset, Math.min(maxOffset, rawOffsetY));
-    return { x: offsetX, y: offsetY };
+    const rawOffsetX = (50 - focusedWorker.position.x) * 1.2 + dragOffset.x;
+    const rawOffsetY = (50 - focusedWorker.position.y) * 1.2 + dragOffset.y;
+    const maxOffset = 50;
+    return {
+      x: Math.max(-maxOffset, Math.min(maxOffset, rawOffsetX)),
+      y: Math.max(-maxOffset, Math.min(maxOffset, rawOffsetY)),
+    };
   };
 
   const cameraOffset = getCameraOffset();
@@ -118,17 +132,16 @@ const HexGrid = () => {
   return (
     <motion.div 
       ref={containerRef}
-      className={`relative w-full aspect-square mx-auto overflow-visible ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`relative w-full aspect-square mx-auto overflow-hidden ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       drag
-      dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
+      dragConstraints={{ left: -150, right: 150, top: -150, bottom: 150 }}
       dragElastic={0.1}
       dragMomentum={false}
       onDragStart={() => setIsDragging(true)}
       onDragEnd={(_, info) => {
         setIsDragging(false);
-        // Apply drag offset with constraints
-        const newX = Math.max(-60, Math.min(60, dragOffset.x + info.offset.x / 5));
-        const newY = Math.max(-60, Math.min(60, dragOffset.y + info.offset.y / 5));
+        const newX = Math.max(-50, Math.min(50, dragOffset.x + info.offset.x / 5));
+        const newY = Math.max(-50, Math.min(50, dragOffset.y + info.offset.y / 5));
         setDragOffset({ x: newX, y: newY });
       }}
       onWheel={handleWheel}
@@ -139,206 +152,108 @@ const HexGrid = () => {
       }}
       transition={{ 
         type: "spring", 
-        stiffness: 80, 
-        damping: 25,
-        mass: 1,
+        stiffness: 100, 
+        damping: 20,
       }}
     >
-      {/* Warp effect overlay */}
-      <AnimatePresence>
-        {isWarping && (
-          <motion.div
-            className="absolute inset-0 z-30 pointer-events-none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <div className="absolute inset-0 bg-gradient-radial from-cyan/20 via-transparent to-transparent animate-pulse" />
-            {[...Array(8)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute top-1/2 left-1/2 w-full h-0.5 origin-left"
-                style={{ rotate: `${i * 45}deg` }}
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: [0, 1, 0] }}
-                transition={{ duration: 0.5, delay: i * 0.05 }}
-              >
-                <div className="w-full h-full bg-gradient-to-r from-cyan via-cyan-glow to-transparent" />
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Minimal outer ring */}
+      <div className="absolute inset-0 rounded-full border border-border" />
+      <div className="absolute inset-4 rounded-full border border-border/50" />
+      <div className="absolute inset-8 rounded-full border border-border/30" />
+      <div className="absolute inset-16 rounded-full border border-border/20" />
 
-      {/* Glow backdrop */}
-      <div className="absolute inset-0 rounded-full bg-gradient-radial from-cyan/10 via-transparent to-transparent" />
-      
-      {/* Outer rings with glow */}
-      <motion.div 
-        className="absolute inset-0 rounded-full border-2 border-cyan/40"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-        style={{ boxShadow: "0 0 30px rgba(0,242,255,0.2), inset 0 0 30px rgba(0,242,255,0.1)" }}
-      />
-      <motion.div 
-        className="absolute inset-6 rounded-full border border-cyan/30"
-        animate={{ rotate: -360 }}
-        transition={{ duration: 90, repeat: Infinity, ease: "linear" }}
-      />
-      <div className="absolute inset-12 rounded-full border border-cyan/20" />
-      <div className="absolute inset-20 rounded-full border border-cyan/15" />
-      <div className="absolute inset-28 rounded-full border border-cyan/10" />
-
-      {/* Restricted zones visualization */}
-      <div 
-        className="absolute rounded-full border border-danger/30 bg-danger/5"
-        style={{ 
-          left: "5%", top: "5%", 
-          width: "30%", height: "30%",
-        }}
-      >
-        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-danger/50 uppercase">
-          Restricted
-        </span>
-      </div>
-      <div 
-        className="absolute rounded-full border border-danger/30 bg-danger/5"
-        style={{ 
-          right: "3%", bottom: "10%", 
-          width: "24%", height: "24%",
-        }}
-      >
-        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-danger/50 uppercase">
-          Restricted
-        </span>
-      </div>
-      
-      {/* Hex grid pattern overlay */}
-      <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">
+      {/* Simplified hex grid pattern - very subtle */}
+      <svg className="absolute inset-0 w-full h-full opacity-[0.08]" viewBox="0 0 100 100">
         <defs>
-          <pattern id="hexPattern" width="8" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+          <pattern id="hexPattern" width="10" height="17.32" patternUnits="userSpaceOnUse">
             <polygon 
-              points="4,0 8,2.31 8,6.93 4,9.24 0,6.93 0,2.31" 
+              points="5,0 10,2.89 10,8.66 5,11.55 0,8.66 0,2.89" 
               fill="none" 
-              stroke="url(#hexGradient)" 
-              strokeWidth="0.3" 
+              stroke="currentColor" 
+              strokeWidth="0.3"
+              className="text-primary"
             />
           </pattern>
-          <linearGradient id="hexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="rgb(0,242,255)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="rgb(0,242,255)" stopOpacity="0.2" />
-          </linearGradient>
         </defs>
         <circle cx="50" cy="50" r="48" fill="url(#hexPattern)" />
       </svg>
 
-      {/* Continuous sonar pulse */}
+      {/* Restricted zones - clean styling */}
+      <div 
+        className="absolute rounded-full border border-destructive/20 bg-destructive/5"
+        style={{ left: "5%", top: "5%", width: "28%", height: "28%" }}
+      >
+        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-destructive/40 uppercase tracking-widest">
+          Restricted
+        </span>
+      </div>
+      <div 
+        className="absolute rounded-full border border-destructive/20 bg-destructive/5"
+        style={{ right: "5%", bottom: "10%", width: "22%", height: "22%" }}
+      >
+        <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[8px] font-mono text-destructive/40 uppercase tracking-widest">
+          Restricted
+        </span>
+      </div>
+
+      {/* Grid crosshairs */}
+      <svg className="absolute inset-0 w-full h-full opacity-[0.1]" viewBox="0 0 100 100">
+        <line x1="50" y1="2" x2="50" y2="98" stroke="currentColor" strokeWidth="0.3" className="text-primary" />
+        <line x1="2" y1="50" x2="98" y2="50" stroke="currentColor" strokeWidth="0.3" className="text-primary" />
+        <line x1="15" y1="15" x2="85" y2="85" stroke="currentColor" strokeWidth="0.2" className="text-primary" />
+        <line x1="85" y1="15" x2="15" y2="85" stroke="currentColor" strokeWidth="0.2" className="text-primary" />
+      </svg>
+
+      {/* Subtle sonar pulse */}
       <motion.div
-        className="absolute inset-0 rounded-full border-2 border-cyan"
-        animate={{ scale: [0.1, 1], opacity: [0.8, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeOut" }}
-        style={{ boxShadow: "0 0 20px rgba(0,242,255,0.5)" }}
-      />
-      <motion.div
-        className="absolute inset-0 rounded-full border border-cyan/60"
-        animate={{ scale: [0.1, 1], opacity: [0.6, 0] }}
-        transition={{ duration: 4, delay: 1, repeat: Infinity, ease: "easeOut" }}
-      />
-      <motion.div
-        className="absolute inset-0 rounded-full border border-cyan/40"
-        animate={{ scale: [0.1, 1], opacity: [0.4, 0] }}
-        transition={{ duration: 4, delay: 2, repeat: Infinity, ease: "easeOut" }}
+        className="absolute inset-0 rounded-full border border-primary/20"
+        animate={{ scale: [0.2, 1], opacity: [0.4, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeOut" }}
       />
 
-      {/* Manual SCAN pulse - triggered by command */}
+      {/* SCAN pulse when triggered */}
       <AnimatePresence>
         {sonarPulseActive && (
-          <>
-            <motion.div
-              className="absolute inset-0 rounded-full border-4 border-cyan"
-              initial={{ scale: 0.1, opacity: 1 }}
-              animate={{ scale: 1.5, opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              style={{ boxShadow: "0 0 40px rgba(0,242,255,0.8)" }}
-            />
-            <motion.div
-              className="absolute inset-0 rounded-full border-2 border-cyan"
-              initial={{ scale: 0.1, opacity: 1 }}
-              animate={{ scale: 1.3, opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
-              style={{ boxShadow: "0 0 30px rgba(0,242,255,0.6)" }}
-            />
-            <motion.div
-              className="absolute inset-0 rounded-full border border-cyan"
-              initial={{ scale: 0.1, opacity: 1 }}
-              animate={{ scale: 1.1, opacity: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
-              style={{ boxShadow: "0 0 20px rgba(0,242,255,0.4)" }}
-            />
-          </>
+          <motion.div
+            className="absolute inset-0 rounded-full border-2 border-primary"
+            initial={{ scale: 0.2, opacity: 1 }}
+            animate={{ scale: 1.2, opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5 }}
+          />
         )}
       </AnimatePresence>
 
-      {/* Grid lines */}
-      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-        <line x1="50" y1="2" x2="50" y2="98" stroke="url(#lineGradient)" strokeWidth="0.3" />
-        <line x1="2" y1="50" x2="98" y2="50" stroke="url(#lineGradient)" strokeWidth="0.3" />
-        <line x1="15" y1="15" x2="85" y2="85" stroke="url(#lineGradient)" strokeWidth="0.2" />
-        <line x1="85" y1="15" x2="15" y2="85" stroke="url(#lineGradient)" strokeWidth="0.2" />
-        <defs>
-          <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgb(0,242,255)" stopOpacity="0" />
-            <stop offset="50%" stopColor="rgb(0,242,255)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="rgb(0,242,255)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      {/* Rotating scan line */}
+      {/* Rotating scan line - subtle */}
       <motion.div
         className="absolute inset-0"
         animate={{ rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
       >
         <div 
-          className="absolute top-1/2 left-1/2 w-1/2 h-0.5 origin-left"
-          style={{
-            background: "linear-gradient(90deg, rgba(0,242,255,0.8), transparent)",
-            boxShadow: "0 0 10px rgba(0,242,255,0.5)"
-          }}
+          className="absolute top-1/2 left-1/2 w-1/2 h-px origin-left opacity-30"
+          style={{ background: "linear-gradient(90deg, hsl(var(--primary)), transparent)" }}
         />
       </motion.div>
 
-      {/* Center point - clickable to recenter */}
+      {/* Center point */}
       <button 
         onClick={handleRecenter}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer z-10 group"
       >
         <motion.div
-          className="w-6 h-6 bg-cyan rounded-full group-hover:scale-125 transition-transform"
-          animate={{ 
-            scale: [1, 1.2, 1],
-            boxShadow: [
-              "0 0 20px rgba(0,242,255,0.5)",
-              "0 0 40px rgba(0,242,255,0.8)",
-              "0 0 20px rgba(0,242,255,0.5)"
-            ]
-          }}
+          className="w-3 h-3 rounded-full bg-primary group-hover:scale-150 transition-transform"
+          animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 2, repeat: Infinity }}
         />
-        <div className="absolute inset-0 w-6 h-6 bg-cyan/30 rounded-full animate-ping" />
-        {/* Recenter icon on hover */}
         <motion.div
-          className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute -bottom-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <RotateCcw className="w-3 h-3 text-cyan" />
+          <RotateCcw className="w-3 h-3 text-primary" />
         </motion.div>
       </button>
 
-      {/* Danger Zone Geofence - Red Pulsing Circle */}
+      {/* Danger Zone Geofence */}
       <AnimatePresence>
         {activeDangerZone && isSiteWideEmergency && (
           <motion.div
@@ -354,63 +269,65 @@ const HexGrid = () => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
           >
-            {/* Outer pulsing ring */}
             <motion.div
-              className="absolute inset-0 rounded-full border-2 border-danger/60"
-              animate={{ 
-                scale: [1, 1.15, 1],
-                opacity: [0.6, 0.3, 0.6],
-              }}
+              className="absolute inset-0 rounded-full border-2 border-destructive/50 bg-destructive/10"
+              animate={{ opacity: [0.5, 0.8, 0.5] }}
               transition={{ duration: 1.5, repeat: Infinity }}
-              style={{ boxShadow: "0 0 30px rgba(255,0,0,0.4)" }}
             />
-            {/* Inner danger zone */}
             <motion.div
-              className="absolute inset-2 rounded-full border-2 border-danger bg-danger/10"
-              animate={{ 
-                boxShadow: [
-                  "0 0 20px rgba(255,0,0,0.3), inset 0 0 20px rgba(255,0,0,0.1)",
-                  "0 0 40px rgba(255,0,0,0.5), inset 0 0 30px rgba(255,0,0,0.2)",
-                  "0 0 20px rgba(255,0,0,0.3), inset 0 0 20px rgba(255,0,0,0.1)"
-                ]
-              }}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-            {/* HAZARD label */}
-            <motion.div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 bg-danger/30 border border-danger rounded"
-              animate={{ opacity: [1, 0.5, 1] }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-1 bg-destructive/20 border border-destructive/50 rounded"
+              animate={{ opacity: [1, 0.6, 1] }}
               transition={{ duration: 0.5, repeat: Infinity }}
             >
-              <span className="text-[8px] font-mono text-danger font-bold uppercase">
-                ⚠️ HAZARD ZONE
-              </span>
-            </motion.div>
-            {/* Rotating danger markers */}
-            <motion.div
-              className="absolute inset-0"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            >
-              {[0, 60, 120, 180, 240, 300].map((angle) => (
-                <motion.div
-                  key={angle}
-                  className="absolute w-2 h-2 bg-danger rounded-full"
-                  style={{
-                    top: "50%",
-                    left: "50%",
-                    transform: `rotate(${angle}deg) translateY(-${activeDangerZone.radius}%) translateX(-50%)`,
-                  }}
-                  animate={{ opacity: [1, 0.3, 1], scale: [1, 0.8, 1] }}
-                  transition={{ duration: 1, repeat: Infinity, delay: angle / 360 }}
-                />
-              ))}
+              <span className="text-[8px] font-mono text-destructive uppercase tracking-widest">Hazard</span>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Worker nodes with smooth gliding transitions */}
+      {/* NEAREST RESPONDER SAFETY LINES */}
+      {nearestResponders && (
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+          {nearestResponders.responders.map((responder, idx) => (
+            <g key={responder.worker.id}>
+              {/* Dashed safety line */}
+              <motion.line
+                x1={`${nearestResponders.victim.position.x}%`}
+                y1={`${nearestResponders.victim.position.y}%`}
+                x2={`${responder.worker.position.x}%`}
+                y2={`${responder.worker.position.y}%`}
+                stroke={idx === 0 ? "hsl(var(--primary))" : "hsl(var(--amber))"}
+                strokeWidth="1.5"
+                strokeDasharray="6 4"
+                strokeOpacity="0.6"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 0.6 }}
+                transition={{ duration: 0.8, delay: idx * 0.2 }}
+              />
+              {/* Animated pulse along line */}
+              <motion.circle
+                r="3"
+                fill={idx === 0 ? "hsl(var(--primary))" : "hsl(var(--amber))"}
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: [0, 1, 0],
+                  cx: [
+                    `${nearestResponders.victim.position.x}%`,
+                    `${responder.worker.position.x}%`,
+                  ],
+                  cy: [
+                    `${nearestResponders.victim.position.y}%`,
+                    `${responder.worker.position.y}%`,
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity, delay: idx * 0.5 }}
+              />
+            </g>
+          ))}
+        </svg>
+      )}
+
+      {/* Worker nodes */}
       <AnimatePresence>
         {showWorkers && workers.map((worker, index) => {
           const isFocused = focusedWorkerId === worker.id;
@@ -419,6 +336,9 @@ const HexGrid = () => {
           const isInProtocol = hasActiveIncident || hasActiveProtocol;
           const isPPEFailing = isPPEHighlighted(worker);
           const isAtRisk = isSiteWideEmergency && affectedWorkerIds.includes(worker.id);
+          
+          // Check if this worker is a responder
+          const responderInfo = nearestResponders?.responders.find(r => r.worker.id === worker.id);
 
           return (
             <motion.div
@@ -438,163 +358,115 @@ const HexGrid = () => {
                 x: "-50%",
                 y: "-50%"
               }}
-              exit={{
-                scale: 0,
-                opacity: 0,
-              }}
+              exit={{ scale: 0, opacity: 0 }}
               transition={{ 
-                left: { type: "spring", stiffness: 50, damping: 15 },
-                top: { type: "spring", stiffness: 50, damping: 15 },
-                scale: { delay: index * 0.1 },
-                opacity: { delay: index * 0.1 }
+                left: { type: "spring", stiffness: 60, damping: 15 },
+                top: { type: "spring", stiffness: 60, damping: 15 },
+                scale: { delay: index * 0.05 },
               }}
               onClick={() => handleWorkerClick(worker)}
             >
-              {/* "AT RISK" pulsing red ring for site-wide emergency */}
+              {/* Responder badge */}
+              <AnimatePresence>
+                {responderInfo && (
+                  <motion.div
+                    className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap z-20"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                  >
+                    <div className={`px-2 py-1 rounded border ${
+                      responderInfo.label === "RESPONDER 1" 
+                        ? "bg-primary/10 border-primary/30" 
+                        : "bg-amber/10 border-amber/30"
+                    }`}>
+                      <p className={`text-[8px] font-mono uppercase tracking-widest ${
+                        responderInfo.label === "RESPONDER 1" ? "text-primary" : "text-amber"
+                      }`}>
+                        {responderInfo.label}
+                      </p>
+                      <p className={`text-[10px] font-mono font-semibold ${
+                        responderInfo.label === "RESPONDER 1" ? "text-primary" : "text-amber"
+                      }`}>
+                        ETA: {responderInfo.eta}
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* At risk pulsing ring */}
               <AnimatePresence>
                 {isAtRisk && !isFocused && (
                   <motion.div
-                    className="absolute -inset-5"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.3, 1] }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ duration: 0.8, repeat: Infinity }}
-                  >
-                    <div className="w-full h-full rounded-full border-3 border-danger" 
-                         style={{ boxShadow: "0 0 20px rgba(255,0,0,0.8)" }} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* PPE violation highlight ring */}
-              <AnimatePresence>
-                {isPPEFailing && !isFocused && !isAtRisk && (
-                  <motion.div
                     className="absolute -inset-4"
                     initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: [1, 1.4, 1], opacity: [1, 0.4, 1] }}
+                    animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0.2, 0.8] }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{ duration: 1, repeat: Infinity }}
                   >
-                    <div className="w-full h-full rounded-full border-2 border-[#FF8C00]" />
+                    <div className="w-full h-full rounded-full border-2 border-destructive" />
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Elevated HR amber ring pulse */}
-              <AnimatePresence>
-                {worker.hrElevated && !isFocused && !hasActiveIncident && !isPPEFailing && (
-                  <motion.div
-                    className="absolute -inset-3"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.3, 0.8] }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <div className="w-full h-full rounded-full border-2 border-ember/60" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Cyan Selection Ring - outer glow for focused worker */}
+              {/* Focus selection ring */}
               <AnimatePresence>
                 {isFocused && (
                   <motion.div
-                    className="absolute -inset-8 pointer-events-none"
+                    className="absolute -inset-5 pointer-events-none"
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                   >
-                    {/* Pulsing outer ring */}
                     <motion.div
-                      className="absolute inset-0 rounded-full border border-cyan/30"
-                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.1, 0.3] }}
+                      className="absolute inset-0 rounded-full border border-primary"
+                      animate={{ scale: [1, 1.2, 1], opacity: [0.6, 0.2, 0.6] }}
                       transition={{ duration: 2, repeat: Infinity }}
                     />
-                    {/* Inner selection ring */}
-                    <motion.div
-                      className="absolute inset-2 rounded-full border-2 border-cyan"
-                      animate={{ 
-                        boxShadow: ["0 0 15px rgba(0,242,255,0.6)", "0 0 30px rgba(0,242,255,0.9)", "0 0 15px rgba(0,242,255,0.6)"]
-                      }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    />
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Status ring for focused/incident/protocol workers - SYNCHRONIZED AMBER PULSE */}
+              {/* Protocol/incident ring */}
               <AnimatePresence>
-                {(isFocused || isInProtocol) && (
+                {isInProtocol && (
                   <motion.div
-                    className="absolute -inset-4"
+                    className="absolute -inset-3"
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                   >
                     <motion.div
-                      className={`w-full h-full rounded-full border-2 ${
-                        worker.inRestrictedZone ? 'border-[#FF8C00]' :
-                        isInProtocol ? 'border-ember' : 'border-cyan'
-                      }`}
-                      animate={{ 
-                        rotate: 360,
-                        boxShadow: worker.inRestrictedZone
-                          ? ["0 0 20px rgba(255,140,0,0.5)", "0 0 40px rgba(255,140,0,0.8)", "0 0 20px rgba(255,140,0,0.5)"]
-                          : isInProtocol 
-                          ? ["0 0 20px rgba(255,191,0,0.5)", "0 0 40px rgba(255,191,0,0.8)", "0 0 20px rgba(255,191,0,0.5)"]
-                          : ["0 0 20px rgba(0,242,255,0.5)", "0 0 40px rgba(0,242,255,0.8)", "0 0 20px rgba(0,242,255,0.5)"]
-                      }}
-                      transition={{ 
-                        rotate: { duration: 3, repeat: Infinity, ease: "linear" },
-                        boxShadow: { duration: 1.5, repeat: Infinity }
-                      }}
+                      className="w-full h-full rounded-full border-2 border-amber"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                     />
-                    {/* Corner markers */}
-                    {[0, 90, 180, 270].map((angle) => (
-                      <motion.div
-                        key={angle}
-                        className={`absolute w-2 h-2 ${
-                          worker.inRestrictedZone ? 'bg-[#FF8C00]' :
-                          isInProtocol ? 'bg-ember' : 'bg-cyan'
-                        }`}
-                        style={{
-                          top: "50%",
-                          left: "50%",
-                          transform: `rotate(${angle}deg) translateY(-20px) translateX(-50%)`,
-                        }}
-                        animate={{ opacity: [1, 0.5, 1] }}
-                        transition={{ duration: 0.5, repeat: Infinity, delay: angle / 360 }}
-                      />
-                    ))}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Worker node dot - SYNCED with protocol state */}
+              {/* Worker node dot */}
               <motion.div
-                className={`rounded-full ${isPPEFailing ? 'bg-[#FF8C00]' : getStatusColor(worker)} ${getStatusGlow(worker, isFocused)}`}
+                className={`rounded-full ${isPPEFailing ? 'bg-amber' : getStatusColor(worker)}`}
                 style={{
-                  width: isFocused ? "20px" : "14px",
-                  height: isFocused ? "20px" : "14px",
+                  width: isFocused ? "16px" : "12px",
+                  height: isFocused ? "16px" : "12px",
                 }}
-                animate={(isInProtocol || worker.inRestrictedZone || isPPEFailing) ? {
-                  scale: [1, 1.3, 1],
-                } : {}}
-                transition={{ duration: 1.5, repeat: (isInProtocol || worker.inRestrictedZone || isPPEFailing) ? Infinity : 0 }}
-                whileHover={{ scale: 1.5 }}
+                animate={isInProtocol ? { scale: [1, 1.2, 1] } : {}}
+                transition={{ duration: 1.5, repeat: isInProtocol ? Infinity : 0 }}
+                whileHover={{ scale: 1.4 }}
               />
 
               {/* Worker ID label */}
               <motion.div
-                className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap"
+                className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: isFocused ? 1 : 0.7 }}
+                animate={{ opacity: isFocused ? 1 : 0.6 }}
               >
-                <span className={`text-[9px] font-mono ${
-                  isPPEFailing ? 'text-[#FF8C00]' :
-                  worker.inRestrictedZone ? 'text-[#FF8C00]' :
-                  isInProtocol ? 'text-ember' : 'text-cyan'
+                <span className={`text-[8px] font-mono uppercase tracking-wider ${
+                  isPPEFailing || worker.inRestrictedZone ? 'text-amber' :
+                  isInProtocol ? 'text-amber' : 'text-primary'
                 }`}>
                   {worker.id}
                 </span>
@@ -604,88 +476,64 @@ const HexGrid = () => {
         })}
       </AnimatePresence>
 
-      {/* Focused worker data card */}
+      {/* Focused worker data card - cleaner styling */}
       <AnimatePresence>
         {focusedWorkerId && focusedWorker && (
           <motion.div
-            className="absolute z-20 glass-panel p-4 min-w-[240px] glow-border-cyan"
+            className="absolute z-20 p-4 min-w-[200px] rounded-lg border border-border bg-card/95 backdrop-blur-sm"
             style={{
-              left: `${Math.min(Math.max(focusedWorker.position.x, 30), 70)}%`,
-              top: `${focusedWorker.position.y > 50 ? focusedWorker.position.y - 35 : focusedWorker.position.y + 25}%`,
+              left: `${Math.min(Math.max(focusedWorker.position.x, 25), 75)}%`,
+              top: `${focusedWorker.position.y > 50 ? focusedWorker.position.y - 30 : focusedWorker.position.y + 20}%`,
             }}
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
           >
             <div className="flex items-center gap-2 mb-2">
-              <motion.div 
-                className={`w-3 h-3 rounded-full ${getStatusColor(focusedWorker)}`}
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
-              />
-              <span className="hud-label text-xs">{focusedWorker.id}</span>
-              <span className={`ml-auto text-[10px] font-mono uppercase ${
-                focusedWorker.status === "safe" ? "text-cyan" :
-                focusedWorker.status === "warning" ? "text-ember" : "text-danger"
+              <div className={`w-2 h-2 rounded-full ${getStatusColor(focusedWorker)}`} />
+              <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">{focusedWorker.id}</span>
+              <span className={`ml-auto text-[10px] font-mono uppercase tracking-widest ${
+                focusedWorker.status === "safe" ? "text-primary" :
+                focusedWorker.status === "warning" ? "text-amber" : "text-destructive"
               }`}>
                 {focusedWorker.status}
               </span>
             </div>
-            <p className="text-cyan font-orbitron text-sm font-bold">{focusedWorker.name}</p>
+            <p className="text-sm font-medium text-foreground">{focusedWorker.name}</p>
             
-            {/* Zone breach warning */}
             {focusedWorker.inRestrictedZone && (
               <motion.div 
-                className="mt-2 px-2 py-1 bg-[#FF8C00]/20 border border-[#FF8C00]/50 rounded text-[10px] text-[#FF8C00] font-mono"
-                animate={{ opacity: [1, 0.5, 1] }}
+                className="mt-2 px-2 py-1 bg-amber/10 border border-amber/30 rounded text-[10px] text-amber font-mono uppercase tracking-wider"
+                animate={{ opacity: [1, 0.6, 1] }}
                 transition={{ duration: 0.5, repeat: Infinity }}
               >
-                ⚠ RESTRICTED ZONE BREACH
+                ⚠ Zone Breach
               </motion.div>
             )}
             
-            <div className="mt-3 space-y-2 text-xs font-mono">
+            <div className="mt-3 space-y-1.5 text-xs font-mono">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Zone:</span>
-                <span className={focusedWorker.inRestrictedZone ? 'text-[#FF8C00]' : 'text-cyan'}>
+                <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Zone</span>
+                <span className={focusedWorker.inRestrictedZone ? 'text-amber' : 'text-foreground'}>
                   {focusedWorker.zone}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">PPE:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-1.5 bg-obsidian-light rounded-full overflow-hidden">
-                    <motion.div 
-                      className={`h-full ${focusedWorker.ppe >= 90 ? 'bg-cyan' : focusedWorker.ppe >= 70 ? 'bg-ember' : 'bg-danger'}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${focusedWorker.ppe}%` }}
-                    />
-                  </div>
-                  <span className={focusedWorker.ppe >= 90 ? 'text-cyan' : focusedWorker.ppe >= 70 ? 'text-ember' : 'text-danger'}>
-                    {focusedWorker.ppe}%
-                  </span>
-                </div>
-              </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Heart Rate:</span>
-                <motion.span 
-                  className={focusedWorker.hrElevated ? 'text-ember' : 'text-cyan'}
-                  animate={focusedWorker.hrElevated ? { opacity: [1, 0.5, 1] } : {}}
-                  transition={{ duration: 0.5, repeat: Infinity }}
-                >
-                  {focusedWorker.heartRate} BPM {focusedWorker.hrElevated && '↑'}
-                </motion.span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">O2 Level:</span>
-                <span className={focusedWorker.oxygenLevel < 94 ? 'text-ember' : 'text-cyan'}>
-                  {focusedWorker.oxygenLevel}%
+                <span className="text-muted-foreground uppercase tracking-wider text-[10px]">PPE</span>
+                <span className={focusedWorker.ppe >= 90 ? 'text-primary' : focusedWorker.ppe >= 70 ? 'text-amber' : 'text-destructive'}>
+                  {focusedWorker.ppe}%
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Coords:</span>
-                <span className="text-cyan">
+                <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Heart Rate</span>
+                <span className={focusedWorker.hrElevated ? 'text-amber' : 'text-foreground'}>
+                  {focusedWorker.heartRate} BPM
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground uppercase tracking-wider text-[10px]">Coords</span>
+                <span className="text-muted-foreground">
                   [{focusedWorker.position.x.toFixed(1)}, {focusedWorker.position.y.toFixed(1)}]
                 </span>
               </div>
@@ -694,11 +542,11 @@ const HexGrid = () => {
         )}
       </AnimatePresence>
 
-      {/* Zone labels */}
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 hud-label text-cyan/70">SECTOR NORTH</div>
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 hud-label text-cyan/70">SECTOR SOUTH</div>
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 hud-label text-cyan/70 rotate-[-90deg]">WEST</div>
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 hud-label text-cyan/70 rotate-90">EAST</div>
+      {/* Corner zone labels */}
+      <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[9px] font-mono text-muted-foreground/50 uppercase tracking-widest">North</div>
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-mono text-muted-foreground/50 uppercase tracking-widest">South</div>
+      <div className="absolute left-1 top-1/2 -translate-y-1/2 text-[9px] font-mono text-muted-foreground/50 uppercase tracking-widest rotate-[-90deg]">W</div>
+      <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-mono text-muted-foreground/50 uppercase tracking-widest rotate-90">E</div>
     </motion.div>
   );
 };
