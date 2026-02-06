@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Shield, Eye, ChevronDown, Cpu, Radio, Activity, Users, Zap } from "lucide-react";
 
-const Helmet3D = lazy(() => import("@/components/Helmet3D"));
+const HeroHelmetDisplay = lazy(() => import("@/components/HeroHelmetDisplay"));
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -177,21 +177,8 @@ const Landing = () => {
                       <div className="w-16 h-16 border-2 border-teal/30 border-t-teal rounded-full animate-spin" />
                     </div>
                   }>
-                    <Helmet3D />
+                    <HeroHelmetDisplay />
                   </Suspense>
-                  
-                  {/* Label */}
-                  <motion.div 
-                    className="absolute right-4 top-1/4 flex items-center gap-3"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 1 }}
-                  >
-                    <div className="w-12 h-px bg-border" />
-                    <div className="px-3 py-1.5 bg-steel/80 border border-border rounded-md">
-                      <span className="text-xs font-mono text-muted-foreground">Guardian Module</span>
-                    </div>
-                  </motion.div>
                 </motion.div>
               </div>
 
