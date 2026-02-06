@@ -166,21 +166,21 @@ const CommsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-bl p-3 w-full h-full flex flex-col"
-      initial={{ opacity: 0, x: -50 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.4 }}
+      className="p-4 w-full h-full flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.1 }}
     >
-      <div className="flex items-center gap-2 mb-2 shrink-0">
-        <Terminal className="w-4 h-4 text-cyan" />
-        <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">AI Detection Log</span>
-        <div className="ml-auto flex items-center gap-1">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
+        <div className="w-2 h-2 rounded-full bg-primary" />
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Detection Log</span>
+        <div className="ml-auto flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/30">
           <motion.div 
-            className="w-1.5 h-1.5 bg-cyan rounded-full"
+            className="w-1.5 h-1.5 bg-primary rounded-full"
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
           />
-          <span className="text-[9px] font-mono text-muted-foreground">LIVE</span>
+          <span className="text-[10px] font-mono text-muted-foreground">LIVE</span>
         </div>
       </div>
 

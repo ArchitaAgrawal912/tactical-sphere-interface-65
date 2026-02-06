@@ -94,40 +94,33 @@ const ResponseProtocolPanel = () => {
 
   return (
     <motion.div
-      className={`glass-panel p-3 w-full ${getSeverityGlow()} ${getSeverityBorder()} border-2`}
-      initial={{ opacity: 0, x: 50, scale: 0.95 }}
-      animate={{ 
-        opacity: 1, 
-        x: 0, 
-        scale: 1,
-        boxShadow: protocol.color === "danger" 
-          ? ["0 0 20px rgba(255,0,0,0.2)", "0 0 40px rgba(255,0,0,0.4)", "0 0 20px rgba(255,0,0,0.2)"]
-          : ["0 0 20px rgba(255,191,0,0.2)", "0 0 40px rgba(255,191,0,0.4)", "0 0 20px rgba(255,191,0,0.2)"]
-      }}
-      exit={{ opacity: 0, x: 50, scale: 0.95 }}
-      transition={{ 
-        duration: 0.3,
-        boxShadow: { duration: 2, repeat: Infinity }
-      }}
+      className={`p-4 w-full rounded-xl ${
+        protocol.color === "danger" ? "bg-destructive/5" : "bg-amber/5"
+      }`}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.2 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <motion.div
-            animate={{ rotate: [0, 10, -10, 0] }}
-            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 1 }}
-          >
-            <ShieldAlert className={`w-4 h-4 ${getSeverityText()}`} />
-          </motion.div>
-          <span className={`text-xs font-mono font-bold tracking-widest uppercase ${getSeverityText()}`}>
+            className={`w-2 h-2 rounded-full ${
+              protocol.color === "danger" ? "bg-destructive" : "bg-amber"
+            }`}
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Response Protocol
           </span>
         </div>
         <button
           onClick={dismissProtocol}
-          className="p-1 hover:bg-muted/20 rounded transition-colors"
+          className="p-1.5 hover:bg-muted/50 rounded-lg transition-colors"
         >
-          <X className="w-3 h-3 text-muted-foreground" />
+          <X className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
