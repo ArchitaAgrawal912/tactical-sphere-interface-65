@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import helmetImage from "@/assets/smart-helmet-hero.png";
+import helmetImage from "@/assets/smart-helmet-cutout.png";
 
 const HeroHelmetDisplay = () => {
   return (
