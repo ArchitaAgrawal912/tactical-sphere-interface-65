@@ -70,18 +70,17 @@ const VitalsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-tl w-full h-full flex flex-col overflow-hidden"
-      initial={{ opacity: 0, x: -50 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.2 }}
+      className="w-full h-full flex flex-col overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.1 }}
     >
-      {/* Sticky Header - Always visible */}
-      <div className="shrink-0 p-3 pb-2 border-b border-cyan/10 bg-obsidian/80 backdrop-blur-sm z-10">
-        {/* Header Row */}
-        <div className="flex items-center justify-between mb-2">
+      {/* Header */}
+      <div className="shrink-0 pb-3 mb-3 border-b border-border">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5 text-cyan" />
-            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">System Vitals</span>
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">System Vitals</span>
           </div>
           <div className="flex items-center gap-1">
             <motion.div 

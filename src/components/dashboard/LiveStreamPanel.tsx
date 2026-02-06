@@ -109,15 +109,15 @@ const LiveStreamPanel = () => {
       </AnimatePresence>
 
       <motion.div
-        className="glass-panel clip-corner-tr p-3 w-full"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.3 }}
+        className="p-4 w-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Camera className="w-3 h-3 text-cyan" />
-            <span className="text-[10px] font-mono font-bold tracking-widest uppercase text-cyan">Live Feed</span>
+            <div className="w-2 h-2 rounded-full bg-primary" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Live Feed</span>
             {/* Multi-target cycling indicator */}
             {isSiteWideEmergency && criticalWorkerIds.length > 1 && (
               <motion.div

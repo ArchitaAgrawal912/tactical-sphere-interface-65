@@ -134,14 +134,14 @@ const MetricsPanel = () => {
 
   return (
     <motion.div
-      className="glass-panel clip-corner-br p-3 w-full"
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.5 }}
+      className="p-4 w-full"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.2 }}
     >
       <div className="flex items-center gap-2 mb-4">
-        <ShieldCheck className="w-4 h-4 text-cyan" />
-        <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan">PPE Compliance</span>
+        <div className="w-2 h-2 rounded-full bg-primary" />
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">PPE Compliance</span>
         {highlightedPPEType && (
           <motion.span 
             className="ml-auto text-[9px] font-mono text-ember uppercase"
