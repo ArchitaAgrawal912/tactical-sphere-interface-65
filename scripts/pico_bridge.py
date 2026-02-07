@@ -22,6 +22,7 @@ import serial.tools.list_ports
 import time
 import re
 import sys
+import json
 from datetime import datetime
 
 # ============================================
@@ -50,7 +51,7 @@ except ImportError:
 
 
 class SensorDataParser:
-    """Parses the serial output from the Pico SafetyMonitor"""
+    """Parses the serial output from the Pico SafetyMonitor (supports both JSON and text)"""
     
     def __init__(self):
         self.current_reading = self._empty_reading()
@@ -75,11 +76,40 @@ class SensorDataParser:
             "danger_level": "SAFE",
         }
     
+    def parse_json_line(self, line: str) -> dict | None:
+        """
+        Try to parse a line as JSON (new format).
+        Returns the reading dict if successful, None otherwise.
+        """
+        line = line.strip()
+        if not line.startswith("{"):
+            return None
+        
+        try:
+            data = json.loads(line)
+            # Validate required fields exist
+            if "temperature" in data and "danger_level" in data:
+                return data
+            return None
+        except json.JSONDecodeError:
+            return None
+    
     def parse_line(self, line: str) -> dict | None:
         """
         Parse a single line of serial output.
-        Returns a complete reading dict when a full block is parsed, or None.
+        First tries JSON parsing, then falls back to text parsing.
+        Returns a complete reading dict when parsed, or None.
         """
+        # First, try JSON parsing (new format)
+        json_result = self.parse_json_line(line)
+        if json_result:
+            return json_result
+        
+        # Fall back to text parsing (legacy format)
+        return self._parse_text_line(line)
+    
+    def _parse_text_line(self, line: str) -> dict | None:
+        """Parse legacy text format output"""
         line = line.strip()
         
         # Start of a new reading block
