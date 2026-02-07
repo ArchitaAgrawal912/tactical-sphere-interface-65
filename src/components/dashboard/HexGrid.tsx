@@ -1,3 +1,4 @@
+// HexGrid Component - Site Map Visualization
 import { motion, AnimatePresence } from "framer-motion";
 import { useSimulationStore } from "@/store/simulationStore";
 import { WorkerTelemetry } from "@/utils/simEngine";
