@@ -1,15 +1,11 @@
 import { motion } from "framer-motion";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState } from "react";
 import SensorStatusPanel from "@/components/dashboard/SensorStatusPanel";
 import CriticalEventsLog from "@/components/dashboard/CriticalEventsLog";
-import LiveStreamPanel from "@/components/dashboard/LiveStreamPanel";
 import { Shield, Cpu, Link2, Radio, Monitor } from "lucide-react";
 import { useSensorData } from "@/hooks/useSensorData";
 import { useSimulatedSensors } from "@/hooks/useSimulatedSensors";
 import { Switch } from "@/components/ui/switch";
-
-// Lazy load the HexGrid for performance
-const HexGrid = lazy(() => import("@/components/dashboard/HexGrid"));
 
 const Dashboard = () => {
   const [time, setTime] = useState(new Date());
@@ -18,12 +14,11 @@ const Dashboard = () => {
   // Hardware data from Supabase Realtime
   const { sensorStatus: hardwareData, isConnected } = useSensorData();
   
-  // Simulated data for demo mode
+  // Simulated data for demo mode - only runs when NOT in hardware mode
   const simulatedData = useSimulatedSensors(!useHardwareData, 2000);
   
   // Choose which data source to use
   const currentData = useHardwareData ? {
-    temperature: hardwareData.temperature,
     smokeLevel: hardwareData.smokeLevel,
     smokePpm: hardwareData.smokePpm,
     smokeStatus: hardwareData.smokeStatus,
@@ -75,13 +70,13 @@ const Dashboard = () => {
         animate={{ y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <div className="max-w-[1800px] mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
           {/* Left: Logo and Status */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Shield className="w-5 h-5 text-primary" />
               <span className="font-semibold text-foreground tracking-tight">
-                Safety Monitor
+                IoT Safety Monitor
               </span>
             </div>
             
@@ -120,20 +115,20 @@ const Dashboard = () => {
                     ? isConnected ? 'text-primary' : 'text-destructive'
                     : 'text-muted-foreground'
                 }`}>
-                  {useHardwareData ? (isConnected ? 'Connected' : 'Offline') : 'Simulation'}
+                  {useHardwareData ? (isConnected ? 'Hardware Connected' : 'Hardware Offline') : 'Simulation Mode'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right: Mode Toggle and Time */}
+          {/* Right: Data Source Toggle and Time */}
           <div className="flex items-center gap-4">
-            {/* Mode Toggle */}
-            <div className="flex items-center gap-3 px-3 py-2 bg-muted/30 rounded-lg">
+            {/* Data Source Toggle */}
+            <div className="flex items-center gap-3 px-3 py-2 bg-muted/30 rounded-lg border border-border">
               <div className="flex items-center gap-1.5">
                 <Monitor className={`w-3.5 h-3.5 ${!useHardwareData ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className={`text-xs font-medium ${!useHardwareData ? 'text-primary' : 'text-muted-foreground'}`}>
-                  Sim
+                  Simulation
                 </span>
               </div>
               
@@ -164,13 +159,13 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="pt-16">
         <section className="min-h-[calc(100vh-64px)] relative">
-          <div className="max-w-[1800px] mx-auto px-6 py-6">
+          <div className="max-w-[1400px] mx-auto px-6 py-6">
             {/* Section Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-2xl font-semibold text-foreground tracking-tight">Safety Dashboard</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Real-time sensor monitoring • {useHardwareData ? "Hardware Mode" : "Simulation Mode"}
+                  Real-time IoT sensor monitoring • {useHardwareData ? "Hardware Mode" : "Simulation Mode"}
                 </p>
               </div>
               
@@ -191,83 +186,68 @@ const Dashboard = () => {
               </motion.div>
             </div>
 
-            {/* Main Bento Grid */}
-            <div className="grid grid-cols-12 gap-4 auto-rows-min">
+            {/* Main Grid - Two columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Column - Sensor Status Panel */}
-              <div className="col-span-12 lg:col-span-3">
-                <motion.div
-                  className="bg-card rounded-xl border border-border p-4"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <SensorStatusPanel 
-                    data={currentData}
-                    isLive={useHardwareData}
-                    isConnected={useHardwareData ? isConnected : true}
-                  />
-                </motion.div>
-              </div>
+              <motion.div
+                className="bg-card rounded-xl border border-border p-6"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <SensorStatusPanel 
+                  data={currentData}
+                  isLive={useHardwareData}
+                  isConnected={useHardwareData ? isConnected : true}
+                  moduleId="MOD-01"
+                />
+              </motion.div>
 
-              {/* Center - Site Map (Hex Grid) */}
-              <div className="col-span-12 lg:col-span-6">
-                <motion.div
-                  className="bg-card rounded-xl border border-border p-4 aspect-square max-h-[600px] flex items-center justify-center"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Suspense fallback={
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-12 h-12 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  }>
-                    <HexGrid />
-                  </Suspense>
-                </motion.div>
-              </div>
-
-              {/* Right Column - Critical Events Log + Live Feed */}
-              <div className="col-span-12 lg:col-span-3 space-y-4">
-                {/* Critical Events Log */}
-                <motion.div
-                  className="bg-card rounded-xl border border-border h-[400px] overflow-hidden"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <CriticalEventsLog
-                    dangerLevel={currentData.dangerLevel}
-                    fireDetected={currentData.fireDetected}
-                    fireLevel={currentData.fireLevel}
-                    fireIntensity={currentData.fireIntensity}
-                    smokeStatus={currentData.smokeStatus}
-                    smokeLevel={currentData.smokeLevel}
-                    movementStatus={currentData.movementStatus}
-                    accelMagnitude={currentData.accelMagnitude}
-                  />
-                </motion.div>
-                
-                {/* Live Feed (Optional) */}
-                <motion.div
-                  className="bg-card rounded-xl border border-border overflow-hidden"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <LiveStreamPanel />
-                </motion.div>
-              </div>
+              {/* Right Column - Critical Events Log */}
+              <motion.div
+                className="bg-card rounded-xl border border-border overflow-hidden"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <CriticalEventsLog
+                  dangerLevel={currentData.dangerLevel}
+                  fireDetected={currentData.fireDetected}
+                  fireLevel={currentData.fireLevel}
+                  fireIntensity={currentData.fireIntensity}
+                  smokeStatus={currentData.smokeStatus}
+                  smokeLevel={currentData.smokeLevel}
+                  movementStatus={currentData.movementStatus}
+                  accelMagnitude={currentData.accelMagnitude}
+                />
+              </motion.div>
             </div>
+
+            {/* Hardware Mode Instructions */}
+            {useHardwareData && !isConnected && (
+              <motion.div
+                className="mt-6 p-4 bg-amber/10 border border-amber/30 rounded-lg"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <h3 className="text-sm font-medium text-amber mb-2">⚡ Hardware Mode Active - Waiting for Data</h3>
+                <p className="text-xs text-muted-foreground">
+                  Run the Python bridge script to start receiving live sensor data from your Raspberry Pi Pico:
+                </p>
+                <code className="block mt-2 p-2 bg-background rounded text-xs font-mono text-foreground">
+                  python scripts/pico_bridge.py
+                </code>
+              </motion.div>
+            )}
           </div>
         </section>
 
         {/* Footer */}
         <footer className="py-6 border-t border-border bg-card">
-          <div className="max-w-[1800px] mx-auto px-6 flex items-center justify-between">
+          <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Shield className="w-4 h-4" />
-              <span className="text-xs">Safety Monitor • MPU6050 + Fire + Smoke Sensors</span>
+              <span className="text-xs">IoT Safety Monitor • Fire + Smoke + Motion Sensors</span>
             </div>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>v1.0</span>

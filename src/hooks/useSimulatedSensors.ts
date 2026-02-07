@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
 export interface SimulatedSensorData {
-  temperature: number;
   smokeLevel: number;
   smokePpm: number;
   smokeStatus: string;
@@ -62,7 +61,6 @@ const getDangerLevel = (fireLevel: string, smokeStatus: string, movementStatus: 
 
 export const useSimulatedSensors = (enabled: boolean = true, interval: number = 2000) => {
   const [data, setData] = useState<SimulatedSensorData>({
-    temperature: 28,
     smokeLevel: 5,
     smokePpm: 50,
     smokeStatus: "SAFE",
@@ -111,7 +109,6 @@ export const useSimulatedSensors = (enabled: boolean = true, interval: number = 
         const incident = maybeInjectIncident(prev);
 
         // Drift values smoothly
-        const temperature = drift(prev.temperature, 20, 50, 0.5);
         let smokeLevel = incident.smokeLevel ?? drift(prev.smokeLevel, 0, 100, 2);
         let fireIntensity = incident.fireIntensity ?? drift(prev.fireIntensity, 0, 100, 1);
         const fireDetected = incident.fireDetected ?? fireIntensity > 20;
@@ -145,7 +142,6 @@ export const useSimulatedSensors = (enabled: boolean = true, interval: number = 
         setPrevMagnitude(accelMagnitude);
 
         return {
-          temperature,
           smokeLevel,
           smokePpm: smokeLevel * 10 + Math.random() * 50,
           smokeStatus,
