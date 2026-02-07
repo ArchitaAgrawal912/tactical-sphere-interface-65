@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      sensor_readings: {
+        Row: {
+          accel_magnitude: number | null
+          accel_x: number | null
+          accel_y: number | null
+          accel_z: number | null
+          created_at: string
+          danger_level: string | null
+          fire_detected: boolean
+          fire_intensity: number | null
+          fire_level: string | null
+          id: string
+          movement_status: string
+          pitch: number | null
+          roll: number | null
+          smoke_level: number
+          smoke_ppm: number | null
+          smoke_status: string | null
+          temperature: number
+        }
+        Insert: {
+          accel_magnitude?: number | null
+          accel_x?: number | null
+          accel_y?: number | null
+          accel_z?: number | null
+          created_at?: string
+          danger_level?: string | null
+          fire_detected?: boolean
+          fire_intensity?: number | null
+          fire_level?: string | null
+          id?: string
+          movement_status?: string
+          pitch?: number | null
+          roll?: number | null
+          smoke_level?: number
+          smoke_ppm?: number | null
+          smoke_status?: string | null
+          temperature?: number
+        }
+        Update: {
+          accel_magnitude?: number | null
+          accel_x?: number | null
+          accel_y?: number | null
+          accel_z?: number | null
+          created_at?: string
+          danger_level?: string | null
+          fire_detected?: boolean
+          fire_intensity?: number | null
+          fire_level?: string | null
+          id?: string
+          movement_status?: string
+          pitch?: number | null
+          roll?: number | null
+          smoke_level?: number
+          smoke_ppm?: number | null
+          smoke_status?: string | null
+          temperature?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
