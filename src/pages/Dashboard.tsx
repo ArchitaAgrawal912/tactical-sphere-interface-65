@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, lazy, Suspense } from "react";
 import VitalsPanel from "@/components/dashboard/VitalsPanel";
+import HardwareSensorPanel from "@/components/dashboard/HardwareSensorPanel";
 import LiveStreamPanel from "@/components/dashboard/LiveStreamPanel";
 import CommsPanel from "@/components/dashboard/CommsPanel";
 import MetricsPanel from "@/components/dashboard/MetricsPanel";
@@ -8,7 +9,8 @@ import ResponseProtocolPanel from "@/components/dashboard/ResponseProtocolPanel"
 import SystemsNominalPanel from "@/components/dashboard/SystemsNominalPanel";
 import { 
   Shield, Users, AlertTriangle, Bell, Play, Pause, RotateCcw, 
-  Eye, EyeOff, Cpu, Wifi, Link2, ChevronDown, BarChart3, FileText 
+  Eye, EyeOff, Cpu, Wifi, Link2, ChevronDown, BarChart3, FileText,
+  Radio, Monitor
 } from "lucide-react";
 import { useSimulationStore } from "@/store/simulationStore";
 import { useWorkerSim } from "@/hooks/useWorkerSim";
@@ -46,6 +48,8 @@ const Dashboard = () => {
   });
 
   const [time, setTime] = useState(new Date());
+  const [useHardwareData, setUseHardwareData] = useState(false);
+  
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(interval);
@@ -158,6 +162,19 @@ const Dashboard = () => {
               </button>
 
               <button
+                onClick={() => setUseHardwareData(!useHardwareData)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  useHardwareData 
+                    ? 'bg-primary/10 text-primary hover:bg-primary/20' 
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+                title={useHardwareData ? "Switch to Simulation" : "Switch to Hardware"}
+              >
+                {useHardwareData ? <Radio className="w-3.5 h-3.5" /> : <Monitor className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{useHardwareData ? 'Hardware' : 'Sim'}</span>
+              </button>
+
+              <button
                 onClick={recenterMap}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-muted/50 text-muted-foreground hover:bg-muted transition-all"
               >
@@ -263,7 +280,7 @@ const Dashboard = () => {
 
             {/* Main Bento Grid */}
             <div className="grid grid-cols-12 gap-4 auto-rows-min">
-              {/* Left Column - Safety Pulse */}
+              {/* Left Column - Safety Pulse / Hardware Sensors */}
               <div className="col-span-12 lg:col-span-3 space-y-4">
                 <motion.div
                   className="bg-card rounded-xl border border-border p-4"
@@ -271,7 +288,7 @@ const Dashboard = () => {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <VitalsPanel />
+                  {useHardwareData ? <HardwareSensorPanel /> : <VitalsPanel />}
                 </motion.div>
               </div>
 
