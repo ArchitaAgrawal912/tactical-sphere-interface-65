@@ -1,9 +1,8 @@
 import { motion } from "framer-motion";
-import { Flame, Wind, Activity, AlertTriangle, Thermometer } from "lucide-react";
+import { Flame, Wind, Activity, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SensorData {
-  temperature: number;
   smokeLevel: number;
   smokePpm?: number;
   smokeStatus: string;
@@ -25,6 +24,7 @@ interface SensorStatusPanelProps {
   data: SensorData;
   isLive?: boolean;
   isConnected?: boolean;
+  moduleId?: string;
 }
 
 const getStatusColor = (status: string) => {
@@ -98,7 +98,7 @@ const SensorCard = ({
   </motion.div>
 );
 
-const SensorStatusPanel = ({ data, isLive = false, isConnected = true }: SensorStatusPanelProps) => {
+const SensorStatusPanel = ({ data, isLive = false, isConnected = true, moduleId = "MOD-01" }: SensorStatusPanelProps) => {
   const formatTime = (dateString: string | null) => {
     if (!dateString) return "--:--:--";
     try {
@@ -120,7 +120,7 @@ const SensorStatusPanel = ({ data, isLive = false, isConnected = true }: SensorS
             isConnected ? "bg-primary animate-pulse" : "bg-destructive"
           )} />
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Safety Monitor
+            IoT Module: {moduleId}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -197,18 +197,6 @@ const SensorStatusPanel = ({ data, isLive = false, isConnected = true }: SensorS
         <div className="flex justify-between">
           <span className="text-muted-foreground">Pitch/Roll:</span>
           <span>{data.pitch.toFixed(1)}° / {data.roll.toFixed(1)}°</span>
-        </div>
-      </SensorCard>
-
-      {/* Temperature */}
-      <SensorCard 
-        icon={Thermometer} 
-        title="Temperature" 
-        status={data.temperature > 45 ? "WARNING" : "SAFE"}
-      >
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Current:</span>
-          <span className="text-lg font-bold">{data.temperature.toFixed(1)}°C</span>
         </div>
       </SensorCard>
 

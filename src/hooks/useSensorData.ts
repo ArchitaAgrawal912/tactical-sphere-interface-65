@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface SensorReading {
   id: string;
-  temperature: number;
   smoke_level: number;
   smoke_ppm: number | null;
   smoke_status: string | null;
@@ -75,11 +74,8 @@ export const useSensorData = () => {
     };
   }, [fetchLatest]);
 
-  // Derived states for UI components
+  // Derived states for UI components (3 sensors only: Fire, Smoke, Motion)
   const sensorStatus = {
-    // Temperature (from MPU6050)
-    temperature: latestReading?.temperature ?? 0,
-    
     // Smoke sensor
     smokeLevel: latestReading?.smoke_level ?? 0,
     smokePpm: latestReading?.smoke_ppm ?? 0,
@@ -90,7 +86,7 @@ export const useSensorData = () => {
     fireIntensity: latestReading?.fire_intensity ?? 0,
     fireLevel: latestReading?.fire_level ?? "SAFE",
     
-    // Movement (MPU6050)
+    // Motion (MPU6050)
     accelX: latestReading?.accel_x ?? 0,
     accelY: latestReading?.accel_y ?? 0,
     accelZ: latestReading?.accel_z ?? 0,
@@ -104,9 +100,6 @@ export const useSensorData = () => {
     lastUpdated: latestReading?.created_at ?? null,
   };
 
-  // Temperature history for sparkline (last 30 readings)
-  const temperatureHistory = readings.map((r) => r.temperature).reverse();
-  
   // Smoke level history
   const smokeLevelHistory = readings.map((r) => r.smoke_level).reverse();
 
@@ -114,7 +107,6 @@ export const useSensorData = () => {
     latestReading,
     readings,
     sensorStatus,
-    temperatureHistory,
     smokeLevelHistory,
     isConnected,
     error,
